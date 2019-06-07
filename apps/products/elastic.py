@@ -261,9 +261,11 @@ def _create_product_body(product):
     groups = itertools.groupby(tmp_sfacets, lambda elem: elem['facet'])
 
     for facet, values in groups:
-        del facet['is_active']
-        facet['values'] = [{'pk': value['pk'], 'name': value['name']} for value in values]
-        sfacets.append(facet)
+        # При удалении параметра is_active у оригинального словаря facet нарушается группировка
+        tmp_facet = dict(facet)
+        tmp_facet.pop('is_active', None)
+        tmp_facet['values'] = [{'pk': value['pk'], 'name': value['name']} for value in values]
+        sfacets.append(tmp_facet)
 
     tags = [{'pk': tag['pk'], 'name': tag['name']} for tag in product['tags']]
 
