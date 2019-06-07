@@ -23,9 +23,10 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         products = self.get_products('all/beer.json')
-        for index, product in enumerate(products[:300]):
+        for index, product in enumerate(products[500:600]):
+            print(index)
             product_data = self.get_product_data(product)
-            product_data['sku'] = index
+            product_data['sku'] = index + 500
             self.create_product(product_data)
 
     def get_product_data(self, product_initial):
