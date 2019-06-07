@@ -100,6 +100,7 @@ class AdminProductCategoryViewSet(viewsets.ModelViewSet):
     permission_classes = (IsTokenAuthenticated, IsStaff, IsAdminForDelete)
     serializer_class = CategorySerializer
     queryset = Category.objects.all()
+    pagination_class = BasePagination
 
     def list(self, request, *args, **kwargs):
         is_active = request.query_params.get('is_active', True) in ['1', 'true', 'True', True]
@@ -168,6 +169,7 @@ class AdminProductManufacturerViewSet(viewsets.ModelViewSet):
     permission_classes = (IsTokenAuthenticated, IsStaff, IsAdminForDelete)
     serializer_class = ManufacturerSerializer
     queryset = Manufacturer.objects.all()
+    pagination_class = BasePagination
 
     def list(self, request, *args, **kwargs):
         is_active = request.query_params.get('is_active', True) in ['1', 'true', 'True', True]
@@ -236,6 +238,7 @@ class AdminProductTagsViewSet(viewsets.ModelViewSet):
     permission_classes = (IsTokenAuthenticated, IsStaff, IsAdminForDelete)
     serializer_class = TagsSerializer
     queryset = Tags.objects.all()
+    pagination_class = BasePagination
 
 
     def list(self, request, *args, **kwargs):
@@ -303,6 +306,7 @@ class AdminProductSFacetViewSet(viewsets.ModelViewSet):
     permission_classes = (IsTokenAuthenticated, IsStaff, IsAdminForDelete)
     serializer_class = SFacetSerializer
     queryset = SFacet.objects.all()
+    pagination_class = BasePagination
 
 
     def list(self, request, *args, **kwargs):
@@ -382,6 +386,7 @@ class AdminProductSFacetValueViewSet(viewsets.ModelViewSet):
     permission_classes = (IsTokenAuthenticated, IsStaff, IsAdminForDelete)
     serializer_class = SFacetValueSerializer
     queryset = SFacetValue.objects.all()
+    pagination_class = BasePagination
 
 
     def list(self, request, *args, **kwargs):
@@ -447,6 +452,7 @@ class AdminProductNFacetViewSet(viewsets.ModelViewSet):
     permission_classes = (IsTokenAuthenticated, IsStaff, IsAdminForDelete)
     serializer_class = NFacetSerializer
     queryset = NFacet.objects.all()
+    pagination_class = BasePagination
 
 
     def list(self, request, *args, **kwargs):
