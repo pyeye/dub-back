@@ -11,6 +11,7 @@ from . import elastic
 from .models import ProductInfo, Category, Tags, Manufacturer, SFacet, SFacetValue, NFacet, NFacetValue, ProductImage
 from apps.authentication.backends import OAuth2Authentication
 from apps.authentication.permissions import IsTokenAuthenticated, IsStaff, IsAdminForDelete
+from apps.base.pagination import BasePagination
 from .serializers import (
     ProductListSerializer,
     ProductRetriveSerializer,
@@ -25,17 +26,22 @@ from .serializers import (
 )
 
 
-class AdminProductViewSet(viewsets.ViewSet):
+class AdminProductViewSet(viewsets.ModelViewSet):
     authentication_classes = [OAuth2Authentication]
     permission_classes = (IsTokenAuthenticated, IsStaff)
+    pagination_class = BasePagination
 
-    def list(self, request):
+    def list(self, request, *args, **kwargs):
         product_status = request.query_params.get('status', 'active')
-        queryset = ProductInfo.objects.filter(status=product_status )
+        queryset = ProductInfo.objects.filter(status=product_status)
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = ProductListSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
         serializer = ProductListSerializer(queryset, many=True)
         return Response(serializer.data)
 
-    def create(self, request):
+    def create(self, request, *args, **kwargs):
         serializer = ProductCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         instance = serializer.save()
@@ -43,7 +49,7 @@ class AdminProductViewSet(viewsets.ViewSet):
             elastic.index_product(instance)
         return Response(data=serializer.data, status=status.HTTP_201_CREATED)
 
-    def retrieve(self, request, pk=None):
+    def retrieve(self, request, pk=None, *args, **kwargs):
         model = get_object_or_404(ProductInfo, pk=pk)
         serializer = ProductRetriveSerializer(model)
         data = json.loads(json.dumps(serializer.data))
@@ -61,7 +67,7 @@ class AdminProductViewSet(viewsets.ViewSet):
 
         return Response(data, status=status.HTTP_200_OK)
 
-    def update(self, request, pk=None):
+    def update(self, request, pk=None, *args, **kwargs):
         instance = get_object_or_404(ProductInfo, pk=pk)
         serializer = ProductCreateSerializer(instance, data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -74,10 +80,10 @@ class AdminProductViewSet(viewsets.ViewSet):
 
         return Response(serializer.data)
 
-    def partial_update(self, request, pk=None):
+    def partial_update(self, request, pk=None, *args, **kwargs):
         pass
 
-    def destroy(self, request, pk=None):
+    def destroy(self, request, pk=None, *args, **kwargs):
         pass
 
 
