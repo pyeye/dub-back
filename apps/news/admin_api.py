@@ -8,30 +8,36 @@ from .serializers import NewsSerializer, NewsCreateSerializer, CategorySerialize
 from .models import News, Category, NewsImage
 from apps.authentication.permissions import IsStaff, IsTokenAuthenticated, IsAdminForDelete
 from apps.authentication.backends import OAuth2Authentication
+from apps.base.pagination import BasePagination
 
 
-class AdminNewsViewSet(viewsets.ViewSet):
+class AdminNewsViewSet(viewsets.ModelViewSet):
     authentication_classes = [OAuth2Authentication]
     permission_classes = (IsTokenAuthenticated, IsStaff)
+    pagination_class = BasePagination
 
-    def list(self, request):
+    def list(self, request, *args, **kwargs):
         is_active = request.query_params.get('is_active', True) in ['1', 'true', 'True', True]
         queryset = News.objects.filter(is_active=is_active)
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = NewsSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
         serializer = NewsSerializer(queryset, many=True)
         return Response(serializer.data)
 
-    def create(self, request):
+    def create(self, request, *args, **kwargs):
         serializer = NewsCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(data=serializer.data, status=status.HTTP_201_CREATED)
 
-    def retrieve(self, request, pk=None):
+    def retrieve(self, request, pk=None, *args, **kwargs):
         model = get_object_or_404(News, pk=pk)
         serializer = NewsSerializer(model)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    def update(self, request, pk=None):
+    def update(self, request, pk=None, *args, **kwargs):
         instance = get_object_or_404(News, pk=pk)
         serializer = NewsCreateSerializer(instance, data=request.data)
         serializer.is_valid(raise_exception=True)
