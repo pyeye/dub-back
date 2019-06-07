@@ -106,10 +106,12 @@ class AdminProductCategoryViewSet(viewsets.ModelViewSet):
         is_active = request.query_params.get('is_active', True) in ['1', 'true', 'True', True]
         queryset = Category.objects.filter(is_active=is_active)
 
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
+        page_query = request.query_params.get('page', None)
+        if page_query is not None:
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
 
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
@@ -175,10 +177,12 @@ class AdminProductManufacturerViewSet(viewsets.ModelViewSet):
         is_active = request.query_params.get('is_active', True) in ['1', 'true', 'True', True]
         queryset = Manufacturer.objects.filter(is_active=is_active)
 
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
+        page_query = request.query_params.get('page', None)
+        if page_query is not None:
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
 
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
@@ -245,10 +249,12 @@ class AdminProductTagsViewSet(viewsets.ModelViewSet):
         is_active = request.query_params.get('is_active', True) in ['1', 'true', 'True', True]
         queryset = Tags.objects.filter(is_active=is_active)
 
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
+        page_query = request.query_params.get('page', None)
+        if page_query is not None:
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
 
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
@@ -313,10 +319,12 @@ class AdminProductSFacetViewSet(viewsets.ModelViewSet):
         is_active = request.query_params.get('is_active', True) in ['1', 'true', 'True', True]
         queryset = SFacet.objects.filter(is_active=is_active)
 
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
+        page_query = request.query_params.get('page', None)
+        if page_query is not None:
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
 
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
@@ -459,10 +467,12 @@ class AdminProductNFacetViewSet(viewsets.ModelViewSet):
         is_active = request.query_params.get('is_active', True) in ['1', 'true', 'True', True]
         queryset = NFacet.objects.filter(is_active=is_active)
 
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
+        page_query = request.query_params.get('page', None)
+        if page_query is not None:
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
 
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
