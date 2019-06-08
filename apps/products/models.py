@@ -5,6 +5,8 @@ from django.db import models
 from django.contrib.postgres.fields import JSONField
 from slugify import slugify
 
+from .managers import RelatedProductManager
+
 
 def upload_location(instance, filename):
     now = datetime.datetime.now()
@@ -37,6 +39,9 @@ class ProductInfo(models.Model):
     status = models.CharField(max_length=128, choices=PRODUCT_STATUS_CHOICES, default=DRAFT)
     extra = JSONField(blank=True, null=True, default={}, verbose_name='Дополнительно')
     created_at = models.DateTimeField(auto_now_add=True, null=False, blank=True, verbose_name='Созданно')
+
+    objects = models.Manager()
+    related_objects = RelatedProductManager()
 
     def __str__(self):
         return self.name

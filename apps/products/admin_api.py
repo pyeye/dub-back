@@ -15,6 +15,7 @@ from apps.authentication.permissions import IsTokenAuthenticated, IsStaff, IsAdm
 from apps.base.pagination import BasePagination
 from .serializers import (
     ProductListSerializer,
+    ProductTableListSerializer,
     ProductRetriveSerializer,
     ProductCreateSerializer,
     ProductImagesSerializer,
@@ -34,7 +35,7 @@ class AdminProductViewSet(viewsets.ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         product_status = request.query_params.get('status', 'active')
-        queryset = ProductInfo.objects.filter(status=product_status)
+        queryset = ProductInfo.related_objects.filter(status=product_status)
         search = request.query_params.get('search', None)
         if search is not None:
             queryset = queryset.filter(
@@ -45,9 +46,9 @@ class AdminProductViewSet(viewsets.ModelViewSet):
             )
         page = self.paginate_queryset(queryset)
         if page is not None:
-            serializer = ProductListSerializer(page, many=True)
+            serializer = ProductTableListSerializer(page, many=True)
             return self.get_paginated_response(serializer.data)
-        serializer = ProductListSerializer(queryset, many=True)
+        serializer = ProductTableListSerializer(queryset, many=True)
         return Response(serializer.data)
 
     def create(self, request, *args, **kwargs):

@@ -265,6 +265,23 @@ class ProductListSerializer(serializers.ModelSerializer):
         )
 
 
+class ProductTableListSerializer(serializers.ModelSerializer):
+    category = CategorySerializer(read_only=True)
+    manufacturer = ManufacturerSerializer(read_only=True)
+    instances = ProductInstanceSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ProductInfo
+        fields = (
+            'pk',
+            'name',
+            'manufacturer',
+            'instances',
+            'category',
+            'status',
+        )
+
+
 class ProductRetriveSerializer(serializers.ModelSerializer):
     sfacets = SFacetValueListSerializer(many=True, read_only=True)
     nfacets = ProductNFacetsRetrieveSerializer(source='nfacetvalue_set', many=True, read_only=True)
