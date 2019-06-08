@@ -6,6 +6,7 @@ from rest_framework.decorators import detail_route, list_route
 from rest_framework.response import Response
 from rest_framework.exceptions import MethodNotAllowed, ValidationError
 from django.shortcuts import get_object_or_404
+from django.db.models import Q
 
 from . import elastic
 from .models import ProductInfo, Category, Tags, Manufacturer, SFacet, SFacetValue, NFacet, NFacetValue, ProductImage
@@ -34,6 +35,14 @@ class AdminProductViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         product_status = request.query_params.get('status', 'active')
         queryset = ProductInfo.objects.filter(status=product_status)
+        search = request.query_params.get('search', None)
+        if search is not None:
+            queryset = queryset.filter(
+                Q(name__icontains=search) |
+                Q(manufacturer__name__icontains=search) |
+                Q(category__name__icontains=search) |
+                Q(instances__sku__icontains=search)
+            )
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = ProductListSerializer(page, many=True)
