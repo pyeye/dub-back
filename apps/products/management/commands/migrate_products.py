@@ -1,14 +1,14 @@
+from random import randint
 import os
 import json
 import random
+import itertools
 
 from django.core.management.base import BaseCommand
 from django.core.files import File
 from apps.products import elastic
 from apps.products.serializers import ProductCreateSerializer
 from apps.products.models import (
-    ProductInfo,
-    ProductInstance,
     Manufacturer,
     Category,
     Tags,
@@ -22,16 +22,25 @@ from apps.products.models import (
 class Command(BaseCommand):
 
     def handle(self, *args, **options):
-        products = self.get_products('all/beer.json')
-        for index, product in enumerate(products[500:600]):
-            print(index)
-            product_data = self.get_product_data(product)
-            product_data['sku'] = index + 500
-            self.create_product(product_data)
+        all_products = self.get_products('all/beer.json')
+        initial_products = all_products[:1000]
+        products_data = []
+        for initial_product in initial_products:
+            try:
+                initial_data = self.get_product_data(initial_product)
+            except (ValueError, TypeError, IndexError):
+                continue
+            products_data.append(initial_data)
+        grouped_products = itertools.groupby(products_data, lambda elem: elem['group_by'])
+        for index, (group_by, product) in enumerate(grouped_products):
+            self.create_product(list(product))
 
     def get_product_data(self, product_initial):
         measure = self.get_attr('Объем:', product_initial, 'measure', first_only=True)
+        if product_initial['title'].startswith('Уманьпиво'):
+            raise ValueError
         data = {
+            'sku': randint(0, 10000000),
             'name': product_initial['title'].split(',')[0].split(maxsplit=1)[1],
             'category': Category.objects.get(slug='beer'),
             'manufacturer': self.get_attr('Производитель:', product_initial, 'manufacturer', first_only=True),
@@ -71,6 +80,12 @@ class Command(BaseCommand):
 
         data['sfacets'] = sfacets
         data['nfacets'] = nfacets
+
+        data['group_by'] = {
+            'name': data['name'],
+            'manufacturer': data['manufacturer'],
+            **sfacets,
+        }
 
         return data
 
@@ -114,12 +129,11 @@ class Command(BaseCommand):
     def randrange(self, start, stop, step):
         return random.randint(0, int((stop - start) / step)) * step + start
 
-    def create_product(self, product):
+    def create_product(self, products):
+        product = products[0]
         product_data = {}
-        try:
-            manufacturer_model = Manufacturer.objects.get(name=product['manufacturer']['values'])
-        except Manufacturer.DoesNotExist:
-            manufacturer_model = Manufacturer.objects.create(name=product['manufacturer']['values'])
+
+        manufacturer_model, created = Manufacturer.objects.get_or_create(name=product['manufacturer']['values'])
 
         product_data['name'] = product['name']
         product_data['manufacturer'] = manufacturer_model.pk
@@ -129,10 +143,7 @@ class Command(BaseCommand):
 
         tags = []
         for tag in product['tags']:
-            try:
-                tag_model = Tags.objects.get(name=tag)
-            except Tags.DoesNotExist:
-                tag_model = Tags.objects.create(name=tag)
+            tag_model, created = Tags.objects.get_or_create(name=tag)
             tags.append(tag_model.pk)
         product_data['tags'] = tags
 
@@ -141,16 +152,20 @@ class Command(BaseCommand):
         product_data['sfacets'] = sfacets
         product_data['nfacets'] = nfacets
 
-        images = self._create_image(product['image'])
-        product_data['instances'] = [{
-            'sku': product['sku'],
-            'measure_count': product['measure_count'],
-            'measure_value': product['measure_value'],
-            'price': product['price'],
-            'stock_balance': product['stock_balance'],
-            'package_amount': product['package_amount'],
-            'images': images,
-        }]
+        instances = []
+        for product_instance in products:
+            images = self._create_image(product_instance['image'])
+            instance = {
+                'sku': product_instance['sku'],
+                'measure_count': product_instance['measure_count'],
+                'measure_value': product_instance['measure_value'],
+                'price': product_instance['price'],
+                'stock_balance': product_instance['stock_balance'],
+                'package_amount': product_instance['package_amount'],
+                'images': images,
+            }
+            instances.append(instance)
+        product_data['instances'] = instances
 
         serializer = ProductCreateSerializer(data=product_data)
         serializer.is_valid(raise_exception=True)
@@ -160,17 +175,10 @@ class Command(BaseCommand):
     def _create_sfacets(self, facets):
         facet_ids = []
         for key, facet in facets.items():
-            try:
-                facet_model = SFacet.objects.get(slug=facet['slug'])
-            except SFacet.DoesNotExist:
-                facet_model = SFacet.objects.create(name=facet['name'], slug=facet['slug'])
+            facet_model, created = SFacet.objects.get_or_create(name=facet['name'], slug=facet['slug'])
 
             for value in facet['values']:
-                try:
-                    facet_values_model = SFacetValue.objects.get(name=value['name'], facet=facet_model.pk)
-                except SFacetValue.DoesNotExist:
-                    facet_values_model = SFacetValue.objects.create(name=value['name'], facet=facet_model)
-
+                facet_values_model, created = SFacetValue.objects.get_or_create(name=value['name'], facet=facet_model)
                 facet_ids.append(facet_values_model.pk)
 
         return facet_ids
@@ -178,11 +186,7 @@ class Command(BaseCommand):
     def _create_nfacets(self, facets):
         nfacets = []
         for key, facet in facets.items():
-            try:
-                facet_model = NFacet.objects.get(slug=facet['slug'])
-            except NFacet.DoesNotExist:
-                facet_model = NFacet.objects.create(name=facet['name'], slug=facet['slug'], suffix=facet['suffix'])
-
+            facet_model, created = NFacet.objects.get_or_create(name=facet['name'], slug=facet['slug'], suffix=facet['suffix'])
             nfacets.append({'facet': facet_model.pk, 'value': facet['value']})
 
         return nfacets
