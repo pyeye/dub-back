@@ -143,7 +143,7 @@ class AdminProductCategoryViewSet(viewsets.ModelViewSet):
 
         if serializer.data['is_active']:
             elastic_category = {
-                'code': serializer.data['pk'],
+                'pk': serializer.data['pk'],
                 'slug': serializer.data['slug'],
                 'name': serializer.data['name'],
             }
@@ -162,7 +162,7 @@ class AdminProductCategoryViewSet(viewsets.ModelViewSet):
             product.status = 'archive'
             product.save()
 
-        elastic_category = {'code': instance.pk, 'slug': instance.slug, 'name': instance.name}
+        elastic_category = {'pk': instance.pk, 'slug': instance.slug, 'name': instance.name}
         elastic.delete_category(elastic_category)
 
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -217,7 +217,7 @@ class AdminProductManufacturerViewSet(viewsets.ModelViewSet):
 
         if serializer.data['is_active']:
             elastic_data = {
-                'code': serializer.data['pk'],
+                'pk': serializer.data['pk'],
                 'slug': serializer.data['slug'],
                 'name': serializer.data['name'],
             }
@@ -236,7 +236,7 @@ class AdminProductManufacturerViewSet(viewsets.ModelViewSet):
             product.status = 'archive'
             product.save()
 
-        elastic_data = {'code': instance.pk, 'slug': instance.slug, 'name': instance.name}
+        elastic_data = {'pk': instance.pk, 'slug': instance.slug, 'name': instance.name}
         elastic.delete_manufacturer(elastic_data)
 
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -293,7 +293,7 @@ class AdminProductTagsViewSet(viewsets.ModelViewSet):
         serializer.save()
 
         if serializer.data['is_active']:
-            elastic_tag = {'code': serializer.data['pk'], 'name': serializer.data['name']}
+            elastic_tag = {'pk': serializer.data['pk'], 'name': serializer.data['name']}
             elastic.update_tag(elastic_tag)
 
         return Response(serializer.data)
@@ -309,7 +309,7 @@ class AdminProductTagsViewSet(viewsets.ModelViewSet):
         for product in products:
             product.tags.remove(instance)
 
-        elastic_tag = {'code': instance.pk, 'name': instance.name}
+        elastic_tag = {'pk': instance.pk, 'name': instance.name}
         elastic.delete_tag(elastic_tag)
 
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -367,7 +367,7 @@ class AdminProductSFacetViewSet(viewsets.ModelViewSet):
 
         if serializer.data['is_active']:
             elastic_data = {
-                'code': serializer.data['pk'],
+                'pk': serializer.data['pk'],
                 'slug': serializer.data['slug'],
                 'name': serializer.data['name']
             }
@@ -438,8 +438,8 @@ class AdminProductSFacetValueViewSet(viewsets.ModelViewSet):
 
         if serializer.data['is_active']:
             elastic_data = {
-                'code': serializer.data['pk'],
-                'facet_code': serializer.data['facet'],
+                'pk': serializer.data['pk'],
+                'facet_pk': serializer.data['facet'],
                 'name': serializer.data['name']
             }
             elastic.update_sfacet_value(elastic_data)
@@ -458,8 +458,8 @@ class AdminProductSFacetValueViewSet(viewsets.ModelViewSet):
             product.sfacets.remove(instance)
 
         elastic_data = {
-            'code': instance.pk,
-            'facet': {'code': instance.facet.pk},
+            'pk': instance.pk,
+            'facet': {'pk': instance.facet.pk},
         }
         elastic.delete_sfacet_value(elastic_data)
 
@@ -518,7 +518,7 @@ class AdminProductNFacetViewSet(viewsets.ModelViewSet):
 
         if serializer.data['is_active']:
             elastic_data = {
-                'code': serializer.data['pk'],
+                'pk': serializer.data['pk'],
                 'slug': serializer.data['slug'],
                 'name': serializer.data['name']
             }

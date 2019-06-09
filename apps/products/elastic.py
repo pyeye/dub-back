@@ -150,7 +150,7 @@ def get_facets(params):
                                         "aggs": {
                                             "facet_values": {
                                                 "terms": {
-                                                    "field": "string_facets.values.code",
+                                                    "field": "string_facets.values.pk",
                                                     "order": {
                                                         "_key": "asc"
                                                     }
@@ -159,7 +159,7 @@ def get_facets(params):
                                                     "facet_values_src": {
                                                         "top_hits": {
                                                             "size": 1,
-                                                            "_source": {"includes": ["string_facets.values.code",
+                                                            "_source": {"includes": ["string_facets.values.pk",
                                                                                      "string_facets.values.name"]}
                                                         }
                                                     }
@@ -291,7 +291,7 @@ def _create_product_body(product):
         'category': {
             'name': product['category']['name'],
             'slug': product['category']['slug'],
-            'code': product['category']['pk'],
+            'pk': product['category']['pk'],
         },
         'description': product['description'],
         'tags': tags,
@@ -319,7 +319,7 @@ def _create_filter_query(params):
                 "nested": {
                     "path": "tags",
                     "query": {
-                        "bool": {"filter": {"term": {"tags.code": int(tag)}}}
+                        "bool": {"filter": {"term": {"tags.pk": int(tag)}}}
                     }
                 }
             }
@@ -343,7 +343,7 @@ def _create_filter_query(params):
                                     "nested": {
                                         "path": "string_facets.values",
                                         "query": {
-                                            "terms": {"string_facets.values.code": values}
+                                            "terms": {"string_facets.values.pk": values}
                                         }
                                     }
                                 }
@@ -401,7 +401,7 @@ def _create_special_aggs(category, attribute, sfilters):
                         {"term": {"string_facets.slug": {"value": special_attr}}},
                         {"nested": {
                           "path": "string_facets.values",
-                          "query": {"terms": {"string_facets.values.code": values}}
+                          "query": {"terms": {"string_facets.values.pk": values}}
                         }}
                       ]
                     }
@@ -438,13 +438,13 @@ def _create_special_aggs(category, attribute, sfilters):
                         "aggs": {
                             "facets_values": {
                               "terms": {
-                                  "field": "string_facets.values.code"
+                                  "field": "string_facets.values.pk"
                               },
                               "aggs": {
                                 "values_src": {
                                   "top_hits": {
                                     "size": 1,
-                                    "_source": { "includes": ["string_facets.values.code", "string_facets.values.name"]}
+                                    "_source": { "includes": ["string_facets.values.pk", "string_facets.values.name"]}
                                   }
                                 }
                               }
@@ -470,8 +470,7 @@ def _get_number(str_value):
 
 def update_category(category):
     body = {
-        "query": {"term": {"category.code": category['code']}
-                  },
+        "query": {"term": {"category.pk": category['pk']}},
         "script": {
             "source": "ctx._source.category = params.category",
             "lang": "painless",
@@ -484,14 +483,13 @@ def update_category(category):
 
 
 def delete_category(category):
-    body = {"query": {"term": {"category.code": category['code']}}}
+    body = {"query": {"term": {"category.pk": category['pk']}}}
     es.delete_by_query(index=INDEX, body=body)
 
 
 def update_manufacturer(manufacturer):
     body = {
-        "query": {"term": {"manufacturer.code": manufacturer['code']}
-                  },
+        "query": {"term": {"manufacturer.pk": manufacturer['pk']}},
         "script": {
             "source": "ctx._source.manufacturer = params.manufacturer",
             "lang": "painless",
@@ -504,7 +502,7 @@ def update_manufacturer(manufacturer):
 
 
 def delete_manufacturer(manufacturer):
-    body = {"query": {"term": {"manufacturer.code": manufacturer['code']}}}
+    body = {"query": {"term": {"manufacturer.pk": manufacturer['pk']}}}
     es.delete_by_query(index=INDEX, body=body)
 
 
@@ -514,7 +512,7 @@ def update_tag(tag):
         "nested": {
           "path": "tags",
           "query": {
-            "bool": {"filter": {"term": {"tags.code": tag['code']}}}
+            "bool": {"filter": {"term": {"tags.pk": tag['pk']}}}
           }
         }
       },
@@ -522,7 +520,7 @@ def update_tag(tag):
         "lang": "painless",
         "source": """
             for (int i = 0; i < ctx._source.tags.length; ++i) {
-                if (ctx._source.tags[i]['code'] == params.tag['code']) {
+                if (ctx._source.tags[i]['pk'] == params.tag['pk']) {
                     ctx._source.tags[i] = params.tag;
                 }
             }
@@ -541,7 +539,7 @@ def delete_tag(tag):
         "nested": {
           "path": "tags",
           "query": {
-            "bool": {"filter": {"term": {"tags.code": tag['code']}}}
+            "bool": {"filter": {"term": {"tags.pk": tag['pk']}}}
           }
         }
       },
@@ -564,7 +562,7 @@ def update_sfacet(string_facet):
         "nested": {
           "path": "string_facets",
           "query": {
-            "bool": {"filter": {"term": {"string_facets.code": string_facet['code']}}}
+            "bool": {"filter": {"term": {"string_facets.pk": string_facet['pk']}}}
           }
         }
       },
@@ -572,7 +570,7 @@ def update_sfacet(string_facet):
         "lang": "painless",
         "source": """
             for (int i = 0; i < ctx._source.string_facets.length; ++i) {
-                if (ctx._source.string_facets[i]['code'] == params.string_facet['code']) {
+                if (ctx._source.string_facets[i]['pk'] == params.string_facet['pk']) {
                     ctx._source.string_facets[i]['name'] = params.string_facet['name'];
                     ctx._source.string_facets[i]['slug'] = params.string_facet['slug'];
                 }
@@ -586,13 +584,13 @@ def update_sfacet(string_facet):
     es.update_by_query(index=INDEX, body=body)
 
 
-def delete_sfacet(code):
+def delete_sfacet(pk):
     body = {
         "query": {
             "nested": {
                 "path": "string_facets",
                 "query": {
-                    "bool": {"filter": {"term": {"string_facets.code": code}}}
+                    "bool": {"filter": {"term": {"string_facets.pk": pk}}}
                 }
             }
         },
@@ -600,13 +598,13 @@ def delete_sfacet(code):
             "lang": "painless",
             "source": """
                 for (int i = 0; i < ctx._source.string_facets.length; ++i) {
-                    if (ctx._source.string_facets[i]['code'] == params.code) {
+                    if (ctx._source.string_facets[i]['pk'] == params.pk) {
                         ctx._source.string_facets.remove(i)
                     }
                 }
             """,
             "params": {
-                "code": code
+                "pk": pk
             }
         }
     }
@@ -621,12 +619,12 @@ def update_sfacet_value(value):
                 "query": {
                     "bool": {
                         "filter": [
-                            {"term": {"string_facets.code": value['facet_code']}},
+                            {"term": {"string_facets.pk": value['facet_pk']}},
                             {
                                 "nested": {
                                     "path": "string_facets.values",
                                     "query": {
-                                        "term": {"string_facets.values.code": value['code']}
+                                        "term": {"string_facets.values.pk": value['pk']}
                                     }
                                 }
                             }
@@ -639,9 +637,9 @@ def update_sfacet_value(value):
             "lang": "painless",
             "source": """
                 for (int i = 0; i < ctx._source.string_facets.length; ++i) {
-                    if (ctx._source.string_facets[i]['code'] == params.value['facet']['code']) {
+                    if (ctx._source.string_facets[i]['pk'] == params.value['facet']['pk']) {
                         for (int j = 0; j < ctx._source.string_facets[i].values.length; ++j) {
-                            if (ctx._source.string_facets[i].values[j]['code'] == params.value['code']) {
+                            if (ctx._source.string_facets[i].values[j]['pk'] == params.value['pk']) {
                                 ctx._source.string_facets[i].values[j]['name'] = params.value['name'];
                             }
                         }
@@ -664,12 +662,12 @@ def delete_sfacet_value(value):
                 "query": {
                     "bool": {
                         "filter": [
-                            {"term": {"string_facets.code": value['facet']['code']}},
+                            {"term": {"string_facets.pk": value['facet']['pk']}},
                             {
                                 "nested": {
                                     "path": "string_facets.values",
                                     "query": {
-                                        "term": {"string_facets.values.code": value['code']}
+                                        "term": {"string_facets.values.pk": value['pk']}
                                     }
                                 }
                             }
@@ -682,9 +680,9 @@ def delete_sfacet_value(value):
             "lang": "painless",
             "source": """
                 for (int i = 0; i < ctx._source.string_facets.length; ++i) {
-                    if (ctx._source.string_facets[i]['code'] == params.value['facet']['code']) {
+                    if (ctx._source.string_facets[i]['pk'] == params.value['facet']['pk']) {
                         for (int j = 0; j < ctx._source.string_facets[i].values.length; ++j) {
-                            if (ctx._source.string_facets[i].values[j]['code'] == params.value['code']) {
+                            if (ctx._source.string_facets[i].values[j]['pk'] == params.value['pk']) {
                                 ctx._source.string_facets[i].values.remove(j)
                             }
                         }
@@ -705,7 +703,7 @@ def update_nfacet(facet):
         "nested": {
           "path": "number_facets",
           "query": {
-            "bool": {"filter": {"term": {"number_facets.code": facet['code']}}}
+            "bool": {"filter": {"term": {"number_facets.pk": facet['pk']}}}
           }
         }
       },
@@ -713,7 +711,7 @@ def update_nfacet(facet):
         "lang": "painless",
         "source": """
             for (int i = 0; i < ctx._source.number_facets.length; ++i) {
-                if (ctx._source.number_facets[i]['code'] == params.facet['code']) {
+                if (ctx._source.number_facets[i]['pk'] == params.facet['pk']) {
                     ctx._source.number_facets[i]['name'] = params.facet['name'];
                     ctx._source.number_facets[i]['slug'] = params.facet['slug'];
                 }
@@ -727,13 +725,13 @@ def update_nfacet(facet):
     es.update_by_query(index=INDEX, body=body)
 
 
-def delete_nfacet(code):
+def delete_nfacet(pk):
     body = {
         "query": {
             "nested": {
                 "path": "number_facets",
                 "query": {
-                    "bool": {"filter": {"term": {"number_facets.code": code}}}
+                    "bool": {"filter": {"term": {"number_facets.pk": pk}}}
                 }
             }
         },
@@ -741,13 +739,13 @@ def delete_nfacet(code):
             "lang": "painless",
             "source": """
                 for (int i = 0; i < ctx._source.number_facets.length; ++i) {
-                    if (ctx._source.number_facets[i]['code'] == params.code) {
+                    if (ctx._source.number_facets[i]['pk'] == params.pk) {
                         ctx._source.number_facets.remove(i)
                     }
                 }
             """,
             "params": {
-                "code": code
+                "pk": pk
             }
         }
     }
