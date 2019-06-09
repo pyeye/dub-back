@@ -115,7 +115,9 @@ class AdminProductCategoryViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         is_active = request.query_params.get('is_active', True) in ['1', 'true', 'True', True]
         queryset = Category.objects.filter(is_active=is_active)
-
+        search = request.query_params.get('search', None)
+        if search is not None:
+            queryset = queryset.filter(name__icontains=search)
         page_query = request.query_params.get('page', None)
         if page_query is not None:
             page = self.paginate_queryset(queryset)
@@ -186,6 +188,9 @@ class AdminProductManufacturerViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         is_active = request.query_params.get('is_active', True) in ['1', 'true', 'True', True]
         queryset = Manufacturer.objects.filter(is_active=is_active)
+        search = request.query_params.get('search', None)
+        if search is not None:
+            queryset = queryset.filter(name__icontains=search)
 
         page_query = request.query_params.get('page', None)
         if page_query is not None:
@@ -258,6 +263,9 @@ class AdminProductTagsViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         is_active = request.query_params.get('is_active', True) in ['1', 'true', 'True', True]
         queryset = Tags.objects.filter(is_active=is_active)
+        search = request.query_params.get('search', None)
+        if search is not None:
+            queryset = queryset.filter(name__icontains=search)
 
         page_query = request.query_params.get('page', None)
         if page_query is not None:
@@ -328,6 +336,9 @@ class AdminProductSFacetViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         is_active = request.query_params.get('is_active', True) in ['1', 'true', 'True', True]
         queryset = SFacet.objects.filter(is_active=is_active)
+        search = request.query_params.get('search', None)
+        if search is not None:
+            queryset = queryset.filter(name__icontains=search)
 
         page_query = request.query_params.get('page', None)
         if page_query is not None:
@@ -476,6 +487,9 @@ class AdminProductNFacetViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         is_active = request.query_params.get('is_active', True) in ['1', 'true', 'True', True]
         queryset = NFacet.objects.filter(is_active=is_active)
+        search = request.query_params.get('search', None)
+        if search is not None:
+            queryset = queryset.filter(name__icontains=search)
 
         page_query = request.query_params.get('page', None)
         if page_query is not None:
