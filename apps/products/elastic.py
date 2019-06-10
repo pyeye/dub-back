@@ -13,7 +13,7 @@ CONFIG = {
     'http_auth': ('elastic', 'secret')
 }
 
-PAGE_SIZE = 5
+PAGE_SIZE = 24
 
 es = Elasticsearch([CONFIG])
 
