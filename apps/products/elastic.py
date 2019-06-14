@@ -1,5 +1,6 @@
 import itertools
 import json
+import datetime
 
 from elasticsearch import Elasticsearch
 
@@ -115,6 +116,34 @@ def get_tags(category):
     for tag in tags['aggregations']['category_tags']['nested_tags']['tags']['buckets']:
         formatted_tags.append(tag['tags_src']['hits']['hits'][0]['_source'])
     return formatted_tags
+
+
+def get_categories():
+    query = {
+        "size": 0,
+        "aggs": {
+            "category": {
+                "terms": {
+                    "field": "category.name"
+                },
+                "aggs": {
+                    "category_src": {
+                        "top_hits": {
+                            "size": 1,
+                            "sort": [{"created_at": {"order": "desc"}}],
+                            "_source": {"includes": ["name", "products", "category"]}
+                        }
+                    }
+                }
+            }
+        }
+    }
+    elastic_categories = es.search(index=INDEX, body=query)
+    categories = []
+    for category in elastic_categories['aggregations']['category']['buckets']:
+        categories.append({'pk': category['category_src']['hits']['hits'][0]['_id'], **category['category_src']['hits']['hits'][0]['_source']})
+
+    return categories
 
 
 def get_facets(params):
@@ -298,6 +327,7 @@ def _create_product_body(product):
         'products': product['instances'],
         'string_facets': sfacets,
         'number_facets': nfacets,
+        'created_at': product['created_at']
     }
 
     return body

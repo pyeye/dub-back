@@ -40,8 +40,10 @@ class FacetsListAPI(APIView):
         return Response({ 'sfacets': sfacets, 'nfacets': nfacets }, status=status.HTTP_200_OK)
 
 
-class CategoryAPIView(generics.ListAPIView):
-    serializer_class = CategorySerializer
-    queryset = Category.objects.all()
+class CategoryAPIView(APIView):
+
+    def get(self, request, format=None):
+        categories = elastic.get_categories()
+        return Response(data=categories, status=status.HTTP_200_OK)
     
 

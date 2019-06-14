@@ -262,6 +262,7 @@ class ProductListSerializer(serializers.ModelSerializer):
             'sfacets',
             'nfacets',
             'status',
+            'created_at',
         )
 
 
