@@ -7,12 +7,12 @@ CONFIG = {
     'http_auth': ('elastic', 'secret')
 }
 
-PAGE_SIZE = 4
+PAGE_SIZE = 24
 
 es = Elasticsearch([CONFIG])
 
 
-def elastic_search_products(params):
+def search_products(params):
     filter_query = _create_filter_query(params)
 
     sort_param = params.get('sort', None)
@@ -51,15 +51,15 @@ def elastic_search_products(params):
         'total': total_products,
     }
 
-def elastic_complete_products(params):
-    complete = params.get('complete')
+
+def complete_products(params):
+    prefix = params.get('prefix')
     query = {
         "suggest": {
-            "search-suggest" : {
-                "prefix": complete,
-                "completion" : {
-                    "field" : "completion",
-                    "fuzzy": True,
+            "search-suggest": {
+                "prefix": prefix,
+                "completion": {
+                    "field": "completion",
                     "skip_duplicates": True
                 }
             }
@@ -73,7 +73,6 @@ def elastic_complete_products(params):
         formatted_completions.append(completion['text'])
 
     return formatted_completions
-
 
 
 def _create_filter_query(params):
