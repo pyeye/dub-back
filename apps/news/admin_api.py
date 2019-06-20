@@ -20,14 +20,6 @@ class AdminNewsViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         is_active = request.query_params.get('is_active', True) in ['1', 'true', 'True', True]
         queryset = News.objects.filter(is_active=is_active)
-        search = request.query_params.get('search', None)
-        if search is not None:
-            queryset = queryset.filter(
-                Q(name__icontains=search) |
-                Q(manufacturer__name__icontains=search) |
-                Q(category__name__icontains=search) |
-                Q(instances__sku__icontains=search)
-            )
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = NewsSerializer(page, many=True)

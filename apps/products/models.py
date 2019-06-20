@@ -13,10 +13,17 @@ def upload_location(instance, filename):
     filename = uuid.uuid4().hex + '.jpg'
     return "product/{year}/{filename}".format(year=now.year, filename=filename)
 
+
 def upload_category_location(instance, filename):
     code = slugify(instance.name, only_ascii=True)
     filename = uuid.uuid4().hex + '.jpg'
     return "category/{code}/{filename}".format(code=code, filename=filename)
+
+
+def upload_collection_location(instance, filename):
+    filename = uuid.uuid4().hex + '.jpg'
+    now = datetime.datetime.now()
+    return "collection/{year}/{filename}".format(year=now.year, filename=filename)
 
 
 class ProductInfo(models.Model):
@@ -96,7 +103,6 @@ class Category(models.Model):
     class Meta:
         verbose_name = 'Категория'
         verbose_name_plural = 'Категории'
-"ProductInstance.images"
 
 
 class Manufacturer(models.Model):
@@ -180,6 +186,28 @@ class NFacetValue(models.Model):
     class Meta:
         verbose_name = 'Числовой аттрибут'
         verbose_name_plural = 'Числовой аттрибуты'
+
+
+class Collection(models.Model):
+    name = models.CharField(max_length=255)
+    slug = models.CharField(max_length=255, blank=True)
+    description = models.TextField(null=True, blank=True)
+    is_active = models.BooleanField(blank=True, default=True)
+    is_public = models.BooleanField(blank=True, default=False)
+    image = models.OneToOneField('CollectionImage', on_delete=models.SET_NULL, blank=True, null=True)
+    products = models.ManyToManyField(ProductInstance, blank=True, related_name="collections")
+    created_at = models.DateTimeField(auto_now_add=True, blank=True)
+    extra = JSONField(blank=True, null=True, default={})
+
+    def save(self, *args, **kwargs):
+        self.slug = slugify(self.name, only_ascii=True)
+        super(Collection, self).save(*args, **kwargs)
+
+
+class CollectionImage(models.Model):
+    src = models.ImageField(upload_to=upload_collection_location, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=False, blank=True)
+    extra = JSONField(blank=True, null=True, default={})
 
 
 

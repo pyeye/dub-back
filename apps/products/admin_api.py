@@ -9,10 +9,22 @@ from django.shortcuts import get_object_or_404
 from django.db.models import Q
 
 from . import elastic
-from .models import ProductInfo, Category, Tags, Manufacturer, SFacet, SFacetValue, NFacet, NFacetValue, ProductImage
 from apps.authentication.backends import OAuth2Authentication
 from apps.authentication.permissions import IsTokenAuthenticated, IsStaff, IsAdminForDelete
 from apps.base.pagination import BasePagination
+from .models import (
+    ProductInfo,
+    Category,
+    Tags,
+    Manufacturer,
+    SFacet,
+    SFacetValue,
+    NFacet,
+    NFacetValue,
+    ProductImage,
+    Collection,
+    CollectionImage,
+)
 from .serializers import (
     ProductListSerializer,
     ProductTableListSerializer,
@@ -25,6 +37,9 @@ from .serializers import (
     SFacetSerializer,
     SFacetValueSerializer,
     NFacetSerializer,
+    CollectionImageSerializer,
+    CollectionCreateSerializer,
+    CollectionSerializer
 )
 
 
@@ -549,9 +564,74 @@ class AdminProductNFacetViewSet(viewsets.ModelViewSet):
         return Response(status=status.HTTP_200_OK)
 
 
-
 class AdminProductImageViewSet(viewsets.ModelViewSet):
     authentication_classes = [OAuth2Authentication]
     permission_classes = (IsTokenAuthenticated, IsStaff, IsAdminForDelete)
     serializer_class = ProductImagesSerializer
     queryset = ProductImage.objects.all()
+
+
+class AdminCollectionViewSet(viewsets.ModelViewSet):
+    authentication_classes = [OAuth2Authentication]
+    permission_classes = (IsTokenAuthenticated, IsStaff)
+    pagination_class = BasePagination
+    queryset = Collection.objects.all()
+
+    def list(self, request, *args, **kwargs):
+        is_active = request.query_params.get('is_active', True) in ['1', 'true', 'True', True]
+        queryset = Collection.objects.filter(is_active=is_active)
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = CollectionSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = CollectionSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    def create(self, request, *args, **kwargs):
+        serializer = CollectionCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+        elastic.add_collection(instance)
+        return Response(data=serializer.data, status=status.HTTP_201_CREATED)
+
+    def retrieve(self, request, pk=None, *args, **kwargs):
+        model = get_object_or_404(Collection, pk=pk)
+        serializer = CollectionSerializer(model)
+        return Response(data=serializer.data, status=status.HTTP_200_OK)
+
+    def update(self, request, pk=None, *args, **kwargs):
+        instance = get_object_or_404(Collection, pk=pk)
+        serializer = CollectionCreateSerializer(instance, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+        elastic.update_collection(instance)
+
+        return Response(serializer.data)
+
+    def partial_update(self, request, pk=None, *args, **kwargs):
+        pass
+
+    def destroy(self, request, pk=None, *args, **kwargs):
+        pass
+
+    @detail_route(methods=['DELETE'])
+    def deactivate(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.is_active = False
+        instance.save()
+        elastic.remove_collection(instance)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @detail_route(methods=['PATCH'])
+    def activate(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.is_active = True
+        instance.save()
+        return Response(status=status.HTTP_200_OK)
+
+
+class AdminCollectionImageViewSet(viewsets.ModelViewSet):
+    authentication_classes = [OAuth2Authentication]
+    permission_classes = (IsTokenAuthenticated, IsStaff, IsAdminForDelete)
+    serializer_class = CollectionImageSerializer
+    queryset = CollectionImage.objects.all()

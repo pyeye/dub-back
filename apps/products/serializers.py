@@ -11,6 +11,8 @@ from .models import (
     SFacetValue,
     NFacet,
     NFacetValue,
+    CollectionImage,
+    Collection,
 )
 
 
@@ -302,3 +304,52 @@ class ProductRetriveSerializer(serializers.ModelSerializer):
             'nfacets',
             'status',
         )
+
+
+class CollectionImageSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = CollectionImage
+        fields = ('pk', 'src')
+
+
+class CollectionProductRetriveSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = ProductInfo
+        fields = (
+            'pk',
+            'name',
+        )
+
+
+class CollectionProductInstanceSerializer(serializers.ModelSerializer):
+    images = ProductImagesSerializer(many=True)
+    product_info = CollectionProductRetriveSerializer()
+
+    class Meta:
+        model = ProductInstance
+        fields = (
+            'pk',
+            'product_info',
+            'sku',
+            'images',
+            'measure_count',
+            'measure_value',
+        )
+
+
+class CollectionSerializer(serializers.ModelSerializer):
+    image = CollectionImageSerializer(read_only=True)
+    products = CollectionProductInstanceSerializer(many=True)
+
+    class Meta:
+        model = Collection
+        fields = ('pk', 'name', 'slug', 'is_public', 'is_active', 'description', 'products', 'image')
+
+
+class CollectionCreateSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Collection
+        fields = ('pk', 'name', 'description', 'image', 'products', 'is_public')

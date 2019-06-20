@@ -25,6 +25,7 @@ def index_product(product_model):
     product_body = _create_product_body(data)
     es.index(index=INDEX, doc_type='_doc', body=product_body, id=data['pk'])
 
+
 def delete_product(product_model):
     es.delete(index=INDEX, doc_type='_doc', id=product_model.pk)
 
@@ -32,6 +33,69 @@ def delete_product(product_model):
 def get_products(params):
     excludes = ['suggest', 'completion', 'fulltext_russian', 'fulltext_phonetic']
     return _elastic_get_products(params=params, excludes=excludes)
+
+
+def add_collection(collection_model):
+    product_ids = [prod.pk for prod in collection_model.products.all()]
+    body = {
+        "query": {
+            "nested": {
+                "path": "products",
+                "query": {
+                    "bool": {"filter": {"terms": {"products.pk": product_ids}}}
+                }
+            }
+        },
+        "script": {
+            "lang": "painless",
+            "source": """
+                for (int i = 0; i < ctx._source.products.length; ++i) {
+                    if (params.products.contains(ctx._source.products[i]['pk'])) {
+                        ctx._source.products[i].collections.add(params.collection);
+                    }
+                }
+            """,
+            "params": {
+                "collection": collection_model.pk,
+                "products": product_ids
+            }
+        }
+    }
+    es.update_by_query(index=INDEX, body=body, conflicts='proceed')
+
+
+def remove_collection(collection_model):
+    body = {
+        "query": {
+            "nested": {
+                "path": "products",
+                "query": {
+                    "bool": {"filter": {"term": {"products.collections": collection_model.pk}}}
+                }
+            }
+        },
+        "script": {
+            "lang": "painless",
+            "source": """
+                for (int i = 0; i < ctx._source.products.length; ++i) {
+                  int index = ctx._source.products[i].collections.indexOf(params.collection);
+                  if (index >= 0) {
+                    ctx._source.products[i].collections.remove(index);
+                  }
+                }
+            """,
+            "params": {
+                "collection": collection_model.pk,
+            }
+        }
+    }
+    es.update_by_query(index=INDEX, body=body)
+
+
+def update_collection(collection_model):
+    remove_collection(collection_model)
+    add_collection(collection_model)
+
 
 def _elastic_get_products(params, excludes):
     filter_query = _create_filter_query(params)

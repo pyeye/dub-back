@@ -33,6 +33,8 @@ from apps.products.admin_api import (
     AdminProductSFacetViewSet,
     AdminProductSFacetValueViewSet,
     AdminProductImageViewSet,
+    AdminCollectionImageViewSet,
+    AdminCollectionViewSet,
 )
 from apps.news.admin_api import AdminNewsViewSet, AdminNewsCategoryViewSet, AdminNewsImageViewSet
 
@@ -42,6 +44,8 @@ router.register(r'news', NewsViewSet, base_name='api-news')
 admin_router = routers.SimpleRouter()
 admin_router.register(r'news', AdminNewsViewSet, base_name='admin-news')
 admin_router.register(r'nimages', AdminNewsImageViewSet, base_name='admin-news-image')
+admin_router.register(r'cimages', AdminCollectionImageViewSet, base_name='admin-collections-image')
+admin_router.register(r'collections', AdminCollectionViewSet, base_name='admin-collections')
 admin_router.register(r'ncategories', AdminNewsCategoryViewSet, base_name='admin-news-category')
 admin_router.register(r'products', AdminProductViewSet, base_name='admin-products')
 admin_router.register(r'pimages', AdminProductImageViewSet, base_name='admin-products-images')
