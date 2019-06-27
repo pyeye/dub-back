@@ -88,7 +88,6 @@ class ProductImagesSerializer(serializers.ModelSerializer):
         fields = ('pk', 'src', 'is_active', 'is_main')
 
 
-
 class ProductInstanceSerializer(serializers.ModelSerializer):
     images = ProductImagesSerializer(many=True)
 
@@ -103,8 +102,8 @@ class ProductInstanceSerializer(serializers.ModelSerializer):
             'price',
             'stock_balance',
             'package_amount',
+            'sales',
         )
-
 
 
 class ProductNFacetsValueSerializer(serializers.ModelSerializer):

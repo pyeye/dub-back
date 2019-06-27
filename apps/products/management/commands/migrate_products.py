@@ -22,7 +22,7 @@ from apps.products.models import (
 class Command(BaseCommand):
 
     def handle(self, *args, **options):
-        all_products = self.get_products('all/beer.json')
+        all_products = self.get_products('all_products/beer.json')
         initial_products = all_products[:1000]
         products_data = []
         for initial_product in initial_products:

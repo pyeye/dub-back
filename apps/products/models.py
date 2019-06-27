@@ -75,12 +75,13 @@ class ProductInstance(models.Model):
     price = models.DecimalField(null=False, blank=False, max_digits=10, decimal_places=2, verbose_name='Цена')
     stock_balance = models.IntegerField(null=False, blank=False, verbose_name='Остаток на складе')
     package_amount = models.IntegerField(null=False, blank=False, verbose_name='Количество в упаковке')
+    sales = JSONField(blank=True, null=True, default=[])
     extra = JSONField(blank=True, null=True, default={}, verbose_name='Дополнительно')
     created_at = models.DateTimeField(auto_now_add=True, null=False, blank=True, verbose_name='Созданно')
     is_active = models.BooleanField(default=True, null=False, blank=True, verbose_name='Активированно')
 
     def __str__(self):
-        return self.sku
+        return str(self.sku)
 
     class Meta:
         verbose_name = 'Товар'

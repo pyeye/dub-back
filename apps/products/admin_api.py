@@ -627,6 +627,7 @@ class AdminCollectionViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         instance.is_active = True
         instance.save()
+        elastic.add_collection(instance)
         return Response(status=status.HTTP_200_OK)
 
 

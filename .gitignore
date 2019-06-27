@@ -20,6 +20,7 @@ parts/
 sdist/
 var/
 wheels/
+all_products/
 pip-wheel-metadata/
 share/python-wheels/
 *.egg-info/

@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'apps.news',
     'apps.home',
     'apps.search',
+    'apps.sales',
 ]
 
 MIDDLEWARE = []
