@@ -125,6 +125,7 @@ class ProductNFacetsRetrieveSerializer(serializers.ModelSerializer):
 
 
 class ProductInstanceCreateSerializer(serializers.ModelSerializer):
+    pk = serializers.IntegerField(read_only=False)
 
     class Meta:
         model = ProductInstance
@@ -207,7 +208,6 @@ class ProductCreateSerializer(serializers.ModelSerializer):
         nfacets = validated_data.pop('nfacetvalue_set', [])
         tags = validated_data.pop('tags', [])
         sfacets = validated_data.pop('sfacets', [])
-
 
         for instance in instances:
             images = instance.pop('images')

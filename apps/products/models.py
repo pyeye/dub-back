@@ -68,7 +68,7 @@ class ProductImage(models.Model):
 
 
 class ProductInstance(models.Model):
-    sku = models.BigIntegerField(null=False, blank=False, unique=True, verbose_name='Артикул')
+    sku = models.BigIntegerField(null=False, blank=False, verbose_name='Артикул')
     product_info = models.ForeignKey(ProductInfo, on_delete=models.CASCADE, blank=False, null=False, related_name='instances', verbose_name='Инфо')
     measure_count = models.CharField(max_length=128, null=False, blank=False, verbose_name='Количество (250/0.75)')
     measure_value = models.CharField(max_length=128, null=False, blank=False, verbose_name='Ед. измерения (гр./шт./л./мл./на чаше')
