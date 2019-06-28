@@ -132,6 +132,32 @@ def _elastic_get_products(params, excludes):
     for product in products['hits']['hits']:
         source = product['_source']
         source['pk'] = product['_id']
+        today = datetime.datetime.today()
+        for instance in source['instances']:
+            price = float(instance['price'])
+            instance['price'] = _format_price(price)
+            if not instance['sales']:
+                continue
+            sales_with_fixed_price = []
+            sales_with_percent_price = []
+            new_price = price
+            for sale in instance['sales']:
+                date_start = datetime.datetime.strptime(sale['date_start'], '%Y-%m-%d')
+                date_end = datetime.datetime.strptime(sale['date_end'], '%Y-%m-%d')
+                if today < date_start or today > date_end:
+                    continue
+                if sale['type'] == 'fixed':
+                    sales_with_fixed_price.append(sale['fixed'])
+                if sale['type'] == 'percent':
+                    sales_with_percent_price.append(sale['percent'])
+            if sales_with_fixed_price:
+                new_price = sales_with_fixed_price[-1]
+            if sales_with_percent_price:
+                percent = sales_with_percent_price[-1]
+                new_price = new_price * ((100 - percent) / 100)
+            if new_price != instance['price']:
+                instance['new_price'] = _format_price(new_price)
+
         formatted_products.append(source)
     return {
         'items': formatted_products,
@@ -141,7 +167,33 @@ def _elastic_get_products(params, excludes):
 
 def get_product(pk):
     product = es.get(index=INDEX, doc_type='_doc', id=pk)
-    return product['_source']
+    source = product['_source']
+    today = datetime.datetime.today()
+    for instance in source['instances']:
+        price = float(instance['price'])
+        instance['price'] = _format_price(price)
+        if not instance['sales']:
+            continue
+        sales_with_fixed_price = []
+        sales_with_percent_price = []
+        new_price = price
+        for sale in instance['sales']:
+            date_start = datetime.datetime.strptime(sale['date_start'], '%Y-%m-%d')
+            date_end = datetime.datetime.strptime(sale['date_end'], '%Y-%m-%d')
+            if today < date_start or today > date_end:
+                continue
+            if sale['type'] == 'fixed':
+                sales_with_fixed_price.append(sale['fixed'])
+            if sale['type'] == 'percent':
+                sales_with_percent_price.append(sale['percent'])
+        if sales_with_fixed_price:
+            new_price = sales_with_fixed_price[-1]
+        if sales_with_percent_price:
+            percent = sales_with_percent_price[-1]
+            new_price = new_price * ((100 - percent) / 100)
+        if new_price != instance['price']:
+            instance['new_price'] = _format_price(new_price)
+    return source
 
 
 def get_tags(category):
@@ -846,3 +898,5 @@ def delete_nfacet(pk):
     es.update_by_query(index=INDEX, body=body)
 
 
+def _format_price(price):
+    return str(int(price)) if price % 1 == 0 else "{:.2f}".format(price)
