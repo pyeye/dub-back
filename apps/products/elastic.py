@@ -133,7 +133,7 @@ def _elastic_get_products(params, excludes):
         source = product['_source']
         source['pk'] = product['_id']
         today = datetime.datetime.today()
-        for instance in source['instances']:
+        for instance in source['products']:
             price = float(instance['price'])
             instance['price'] = _format_price(price)
             if not instance['sales']:
@@ -471,6 +471,32 @@ def _create_filter_query(params):
             }
             tags_query.append(tag_query)
         filter_query.append(tags_query)
+
+    sales_param = params.get('sales', None)
+    if sales_param is not None:
+        sales_query = []
+        sales = sales_param.split(',')
+        for sale in sales:
+            sale_query = {
+                "nested": {
+                    "path": "products",
+                    "query": {
+                        "nested": {
+                            "path": "products.sales",
+                            "query": {
+                                "bool": {
+                                    "filter": {
+                                        "term": {"products.sales.pk": int(sale)}
+                                    }
+                                }
+                            }
+                        }
+
+                    }
+                }
+            }
+            sales_query.append(sale_query)
+        filter_query.append(sales_query)
 
     string_facets_params = params.getlist('sfacets[]')
     if string_facets_params:

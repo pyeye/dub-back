@@ -106,6 +106,22 @@ class SaleSerializer(serializers.ModelSerializer):
         )
 
 
+class SaleApiSerializer(serializers.ModelSerializer):
+    image = SaleImageSerializer(read_only=True)
+
+    class Meta:
+        model = Sale
+        fields = (
+            'pk',
+            'name',
+            'description',
+            'date_start',
+            'date_end',
+            'image',
+            'is_active',
+        )
+
+
 class SaleAdminSerializer(BaseSaleSerializer):
     categories = CategorySaleSerializer(source='categorysale_set', many=True)
     collections = CollectionSaleSerializer(source='collectionsale_set', many=True)
@@ -126,6 +142,10 @@ class SaleAdminSerializer(BaseSaleSerializer):
             'products',
             'is_active',
         )
+
+    def validate_image(self, value):
+        if not value:
+            raise serializers.ValidationError('Это поле не может быть пустым.')
 
     def validate(self, data):
         categories = data.get('categorysale_set', None)

@@ -140,6 +140,10 @@ class ProductInstanceCreateSerializer(serializers.ModelSerializer):
             'package_amount',
         )
 
+    def validate_images(self, value):
+        if not value:
+            raise serializers.ValidationError('Это поле не может быть пустым.')
+
 
 class ProductCreateSerializer(serializers.ModelSerializer):
     instances = ProductInstanceCreateSerializer(many=True)

@@ -23,6 +23,7 @@ from apps.news.views import NewsViewSet
 from apps.products.views import CategoryAPIView, TagsListAPI, FacetsListAPI, ProductListAPI, ProductDetailAPI
 from apps.home.views import BannerApiView, AdvertisementApiView, HomeNewsApiView, BestsellersListAPI
 from apps.search.views import SearchListAPI, CompletionListAPI
+from apps.sales.views import SalesViewSet
 
 from apps.products.admin_api import (
     AdminProductViewSet,
@@ -41,6 +42,7 @@ from apps.sales.admin import AdminSaleViewSet, AdminSalesImageViewSet
 
 router = routers.SimpleRouter()
 router.register(r'news', NewsViewSet, base_name='api-news')
+router.register(r'sales', SalesViewSet, base_name='api-sales')
 
 admin_router = routers.SimpleRouter()
 admin_router.register(r'news', AdminNewsViewSet, base_name='admin-news')

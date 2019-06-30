@@ -20,7 +20,7 @@ class Sale(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField()
     details = JSONField()
-    image = models.OneToOneField('SaleImage', on_delete=models.SET_NULL, blank=True, null=True, related_name='sales')
+    image = models.OneToOneField('SaleImage', on_delete=models.SET_NULL, null=True, related_name='sales')
     date_start = models.DateField()
     date_end = models.DateField()
     categories = models.ManyToManyField(Category, through='CategorySale', blank=True, null=True)
