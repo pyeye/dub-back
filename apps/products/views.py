@@ -40,6 +40,14 @@ class FacetsListAPI(APIView):
         return Response({ 'sfacets': sfacets, 'nfacets': nfacets }, status=status.HTTP_200_OK)
 
 
+class FacetAllValuesListAPI(APIView):
+
+    def get(self, request, format=None):
+        params = self.request.query_params
+        values = elastic.get_all_special_agg_values(params)
+        return Response(data=values, status=status.HTTP_200_OK)
+
+
 class CategoryAPIView(APIView):
 
     def get(self, request, format=None):

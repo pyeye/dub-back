@@ -20,7 +20,7 @@ from rest_framework import routers
 from apps.authentication.views import CreateGuestView, JWTUserView, SecretView
 from apps.users.views import CustomerAPIView, PasswordAPIView, CartSessionAPIView, WatchedSessionAPIView
 from apps.news.views import NewsViewSet
-from apps.products.views import CategoryAPIView, TagsListAPI, FacetsListAPI, ProductListAPI, ProductDetailAPI
+from apps.products.views import CategoryAPIView, TagsListAPI, FacetsListAPI, ProductListAPI, ProductDetailAPI, FacetAllValuesListAPI
 from apps.home.views import BannerApiView, AdvertisementApiView, HomeNewsApiView, BestsellersListAPI
 from apps.search.views import SearchListAPI, CompletionListAPI
 from apps.sales.views import SalesViewSet
@@ -80,6 +80,7 @@ urlpatterns = [
     url(r'^v1/home/bestsellers/', BestsellersListAPI.as_view(), name="bestseller-api"),
     url(r'^v1/tags/', TagsListAPI.as_view(), name="tags-list"),
     url(r'^v1/facets/', FacetsListAPI.as_view(), name="facets-list"),
+    url(r'^v1/facet/full/', FacetAllValuesListAPI.as_view(), name="facets-all-list"),
     url(r'^v1/session/carts/', CartSessionAPIView.as_view(), name="session-carts-api"),
     url(r'^v1/session/watched/', WatchedSessionAPIView.as_view(), name="session-watched-api"),
     url(r'^v1/secret/', SecretView.as_view(), name="secret-list"),

@@ -210,7 +210,8 @@ def get_tags(category):
                         "aggs": {
                             "tags": {
                                 "terms": {
-                                    "field": "tags.name"
+                                    "field": "tags.name",
+                                    "size": 100
                                 },
                                 "aggs": {
                                     "tags_src": {
@@ -240,7 +241,8 @@ def get_categories():
         "aggs": {
             "category": {
                 "terms": {
-                    "field": "category.name"
+                    "field": "category.name",
+                    "size": 100
                 },
                 "aggs": {
                     "category_src": {
@@ -279,6 +281,7 @@ def get_facets(params):
                             "facets_code": {
                                 "terms": {
                                     "field": "string_facets.slug",
+                                    "size": 100,
                                     "order": {
                                         "_key": "asc"
                                     }
@@ -296,9 +299,7 @@ def get_facets(params):
                                             "facet_values": {
                                                 "terms": {
                                                     "field": "string_facets.values.pk",
-                                                    "order": {
-                                                        "_key": "asc"
-                                                    }
+                                                    "size": 10
                                                 },
                                                 "aggs": {
                                                     "facet_values_src": {
@@ -324,6 +325,7 @@ def get_facets(params):
                     "facets_code": {
                         "terms": {
                             "field": "number_facets.slug",
+                            "size": 100,
                             "order": {
                                 "_key": "asc"
                             }
@@ -365,17 +367,12 @@ def get_facets(params):
         string_facets.append(string_facets_obj)
 
     sfilters = params.getlist('sfacets[]')
-    if len(sfilters)> 1:
+    if sfilters:
         category = params.get('category')
         for sfilter in sfilters:
             attribute, values = sfilter.split(':')
-            special_agg_query = _create_special_aggs(category, attribute, sfilters)
-            special_aggs = es.search(body=special_agg_query)
-            sp_string_facet_items = []
-            for bucket in special_aggs['aggregations']['special_agg']['nested_agg']['string_facets_agg']['nested_values']['facets_values']['buckets']:
-                sp_string_facets_obj = bucket['values_src']['hits']['hits'][0]['_source']
-                sp_string_facets_obj['count'] = bucket['doc_count']
-                sp_string_facet_items.append(sp_string_facets_obj)
+            size = 10
+            sp_string_facet_items = _get_special_agg_values(category, attribute, sfilters, size)
             facet_index = next((index for (index, d) in enumerate(string_facets) if d['slug'] == attribute), None)
             if facet_index is not None:
                 string_facets[facet_index]['values'] = sp_string_facet_items
@@ -558,7 +555,8 @@ def _create_filter_query(params):
 
     return filter_query
 
-def _create_special_aggs(category, attribute, sfilters):
+
+def _create_special_aggs_query(category, attribute, sfilters, size):
     special_aggs_query = []
     for sfilter in sfilters:
         special_attr, values = sfilter.split(':')
@@ -610,7 +608,8 @@ def _create_special_aggs(category, attribute, sfilters):
                         "aggs": {
                             "facets_values": {
                               "terms": {
-                                  "field": "string_facets.values.pk"
+                                  "field": "string_facets.values.pk",
+                                  "size": size
                               },
                               "aggs": {
                                 "values_src": {
@@ -926,3 +925,23 @@ def delete_nfacet(pk):
 
 def _format_price(price):
     return str(int(price)) if price % 1 == 0 else "{:.2f}".format(price)
+
+
+def _get_special_agg_values(category, attribute, sfilters, size):
+    special_agg_query = _create_special_aggs_query(category, attribute, sfilters, size)
+    special_aggs = es.search(body=special_agg_query)
+    sp_string_facet_values = []
+    for bucket in special_aggs['aggregations']['special_agg']['nested_agg']['string_facets_agg']['nested_values']['facets_values']['buckets']:
+        sp_string_facets_obj = bucket['values_src']['hits']['hits'][0]['_source']
+        sp_string_facets_obj['count'] = bucket['doc_count']
+        sp_string_facet_values.append(sp_string_facets_obj)
+    return sp_string_facet_values
+
+
+def get_all_special_agg_values(params):
+    sfilters = params.getlist('sfacets[]')
+    category = params.get('category')
+    attribute = params.get('facet')
+    size = 100
+    facet_values = _get_special_agg_values(category, attribute, sfilters, size)
+    return facet_values
