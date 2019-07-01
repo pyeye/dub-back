@@ -5,6 +5,7 @@ from django.contrib.postgres.fields import JSONField, DateTimeRangeField
 from django.db import models
 
 from apps.products.models import Category, Collection, ProductInstance
+from apps.base.utils import localize_month
 
 
 SALE_TYPES = ['condition', 'percent', 'fixed']
@@ -37,6 +38,23 @@ class Sale(models.Model):
     class Meta:
         verbose_name = 'Акция'
         verbose_name_plural = 'Акции'
+
+    @property
+    def fdate_start(self):
+        date = self.date_start
+        return self._format_date(date)
+
+    @property
+    def fdate_end(self):
+        date = self.date_end
+        return self._format_date(date)
+
+    def _format_date(self, date):
+        return {
+            'day': date.day,
+            'month': localize_month(date.month),
+            'year': date.year,
+        }
 
 
 class CategorySale(models.Model):

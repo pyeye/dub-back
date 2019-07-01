@@ -144,6 +144,8 @@ class ProductInstanceCreateSerializer(serializers.ModelSerializer):
         if not value:
             raise serializers.ValidationError('Это поле не может быть пустым.')
 
+        return value
+
 
 class ProductCreateSerializer(serializers.ModelSerializer):
     instances = ProductInstanceCreateSerializer(many=True)

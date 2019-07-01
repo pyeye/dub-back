@@ -56,3 +56,5 @@ class NewsCreateSerializer(serializers.ModelSerializer):
     def validate_image(self, value):
         if not value:
             raise serializers.ValidationError('Это поле не может быть пустым.')
+
+        return value

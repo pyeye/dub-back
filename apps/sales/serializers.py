@@ -115,8 +115,8 @@ class SaleApiSerializer(serializers.ModelSerializer):
             'pk',
             'name',
             'description',
-            'date_start',
-            'date_end',
+            'fdate_start',
+            'fdate_end',
             'image',
             'is_active',
         )
@@ -146,6 +146,8 @@ class SaleAdminSerializer(BaseSaleSerializer):
     def validate_image(self, value):
         if not value:
             raise serializers.ValidationError('Это поле не может быть пустым.')
+
+        return value
 
     def validate(self, data):
         categories = data.get('categorysale_set', None)
@@ -179,6 +181,7 @@ class SaleAdminSerializer(BaseSaleSerializer):
         instance.name = validated_data.pop('name')
         instance.description = validated_data.pop('description')
         instance.details = validated_data.pop('details')
+        instance.image = validated_data.pop('image')
         instance.date_start = validated_data.pop('date_start')
         instance.date_end = validated_data.pop('date_end')
         instance.is_active = validated_data.pop('is_active')
