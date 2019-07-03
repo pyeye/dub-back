@@ -27,8 +27,8 @@ class ProductDetailAPI(APIView):
 class TagsListAPI(APIView):
 
     def get(self, request, format=None):
-        category = self.request.query_params.get('category', None)
-        tags = elastic.get_tags(category=category)
+        params = self.request.query_params
+        tags = elastic.get_tags(params)
         return Response(tags, status=status.HTTP_200_OK)
 
 

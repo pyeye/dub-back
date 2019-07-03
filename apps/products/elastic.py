@@ -196,12 +196,17 @@ def get_product(pk):
     return source
 
 
-def get_tags(category):
+def get_tags(params):
+    filter_query = _create_filter_query(params)
     query = {
         "size": 0,
         "aggs": {
             "category_tags": {
-                "filter": {"term": {"category.slug": category}},
+                "filter": {
+                    "bool": {
+                        "filter": filter_query
+                    }
+                },
                 "aggs": {
                     "nested_tags": {
                         "nested": {
@@ -268,7 +273,7 @@ def get_facets(params):
     filter_query = _create_filter_query(params)
     query = {
         "aggs": {
-            "string_facets_filter": {
+            "facets_filter": {
                 'filter': {
                     "bool": {
                         "filter": filter_query
@@ -316,30 +321,30 @@ def get_facets(params):
                                 }
                             }
                         }
-                    }
-                }
-            },
-            "number_facets": {
-                "nested": {"path": "number_facets"},
-                "aggs": {
-                    "facets_code": {
-                        "terms": {
-                            "field": "number_facets.slug",
-                            "size": 100,
-                            "order": {
-                                "_key": "asc"
-                            }
-                        },
+                    },
+                    "number_facets": {
+                        "nested": {"path": "number_facets"},
                         "aggs": {
-                            "facets_src": {
-                                "top_hits": {
-                                    "size": 1,
-                                    "_source": {"includes": ["number_facets"]}
-                                }
-                            },
-                            "facets_stats": {
-                                "stats": {
-                                    "field": "number_facets.value"
+                            "facets_code": {
+                                "terms": {
+                                    "field": "number_facets.slug",
+                                    "size": 100,
+                                    "order": {
+                                        "_key": "asc"
+                                    }
+                                },
+                                "aggs": {
+                                    "facets_src": {
+                                        "top_hits": {
+                                            "size": 1,
+                                            "_source": {"includes": ["number_facets"]}
+                                        }
+                                    },
+                                    "facets_stats": {
+                                        "stats": {
+                                            "field": "number_facets.value"
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -351,7 +356,7 @@ def get_facets(params):
     all_facets = es.search(index=INDEX, body=query)
 
     string_facets = []
-    for string_facet_aggs in all_facets['aggregations']['string_facets_filter']['string_facets']['facets_code']['buckets']:
+    for string_facet_aggs in all_facets['aggregations']['facets_filter']['string_facets']['facets_code']['buckets']:
         facet_key = string_facet_aggs['key']
         facet_name = string_facet_aggs['facets_src']['hits']['hits'][0]['_source']['name']
         string_facet_items = []
@@ -368,17 +373,15 @@ def get_facets(params):
 
     sfilters = params.getlist('sfacets[]')
     if sfilters:
-        category = params.get('category')
         for sfilter in sfilters:
             attribute, values = sfilter.split(':')
-            size = 10
-            sp_string_facet_items = _get_special_agg_values(category, attribute, sfilters, size)
+            sp_string_facet_items = _get_special_agg_values(params, attribute)
             facet_index = next((index for (index, d) in enumerate(string_facets) if d['slug'] == attribute), None)
             if facet_index is not None:
                 string_facets[facet_index]['values'] = sp_string_facet_items
 
     number_facets = []
-    for number_facet_aggs in all_facets['aggregations']['number_facets']['facets_code']['buckets']:
+    for number_facet_aggs in all_facets['aggregations']['facets_filter']['number_facets']['facets_code']['buckets']:
         source = number_facet_aggs['facets_src']['hits']['hits'][0]['_source']
         stats = number_facet_aggs['facets_stats']
         number_facets_obj = {
@@ -422,7 +425,6 @@ def _create_product_body(product):
             'value': nfacet['value'],
         })
 
-
     body = {
         'name': product['name'],
         'manufacturer': {
@@ -445,7 +447,10 @@ def _create_product_body(product):
 
     return body
 
-def _create_filter_query(params):
+
+# Values in loop is equivalent AND operator and have term in filter query
+# Values as array of pk's is equivalent OR operator and have terms in filter query
+def _create_filter_query(params, special_sfacet=None):
     filter_query = []
 
     category = params.get('category', None)
@@ -471,29 +476,26 @@ def _create_filter_query(params):
 
     sales_param = params.get('sales', None)
     if sales_param is not None:
-        sales_query = []
-        sales = sales_param.split(',')
-        for sale in sales:
-            sale_query = {
-                "nested": {
-                    "path": "products",
-                    "query": {
-                        "nested": {
-                            "path": "products.sales",
-                            "query": {
-                                "bool": {
-                                    "filter": {
-                                        "term": {"products.sales.pk": int(sale)}
-                                    }
+        sales = [int(sale) for sale in sales_param.split(',')]
+        sale_query = {
+            "nested": {
+                "path": "products",
+                "query": {
+                    "nested": {
+                        "path": "products.sales",
+                        "query": {
+                            "bool": {
+                                "filter": {
+                                    "terms": {"products.sales.pk": sales}
                                 }
                             }
                         }
-
                     }
+
                 }
             }
-            sales_query.append(sale_query)
-        filter_query.append(sales_query)
+        }
+        filter_query.append(sale_query)
 
     string_facets_params = params.getlist('sfacets[]')
     if string_facets_params:
@@ -501,6 +503,8 @@ def _create_filter_query(params):
         for string_facets_param in string_facets_params:
             attribute, values = string_facets_param.split(':')
             values = values.split(',')
+            if special_sfacet is not None and special_sfacet == attribute:
+                continue
             facet = {
                 "nested": {
                     "path": "string_facets",
@@ -539,9 +543,9 @@ def _create_filter_query(params):
                       {"term": {"number_facets.slug": attribute}},
                       {
                         "range" : {
-                          "number_facets.value" : {
-                              "gte" : min_val,
-                              "lte" : max_val
+                          "number_facets.value": {
+                              "gte": min_val,
+                              "lte": max_val
                           }
                         }
                       }
@@ -556,33 +560,8 @@ def _create_filter_query(params):
     return filter_query
 
 
-def _create_special_aggs_query(category, attribute, sfilters, size):
-    special_aggs_query = []
-    for sfilter in sfilters:
-        special_attr, values = sfilter.split(':')
-        if special_attr == attribute:
-            continue
-        values = values.split(',')
-        special_agg_query = {"nested": {
-                  "path": "string_facets",
-                  "query": {
-                    "bool": {
-                      "filter": [
-                        {"term": {"string_facets.slug": {"value": special_attr}}},
-                        {"nested": {
-                          "path": "string_facets.values",
-                          "query": {"terms": {"string_facets.values.pk": values}}
-                        }}
-                      ]
-                    }
-                  }
-                }}
-        special_aggs_query.append(special_agg_query)
-
-    filter_query = []
-    category_query = {"term": {"category.slug": category}}
-    filter_query.append(category_query)
-    filter_query += special_aggs_query
+def _create_special_aggs_query(params, special_sfacet, size=10):
+    filter_query = _create_filter_query(params, special_sfacet)
     query = {
       "size": 0,
       "aggs": {
@@ -599,7 +578,7 @@ def _create_special_aggs_query(category, attribute, sfilters, size):
               },
               "aggs": {
                   "string_facets_agg": {
-                    "filter": {"term": {"string_facets.slug": attribute}},
+                    "filter": {"term": {"string_facets.slug": special_sfacet}},
                     "aggs": {
                       "nested_values": {
                         "nested": {
@@ -615,7 +594,7 @@ def _create_special_aggs_query(category, attribute, sfilters, size):
                                 "values_src": {
                                   "top_hits": {
                                     "size": 1,
-                                    "_source": { "includes": ["string_facets.values.pk", "string_facets.values.name"]}
+                                    "_source": {"includes": ["string_facets.values.pk", "string_facets.values.name"]}
                                   }
                                 }
                               }
@@ -632,11 +611,23 @@ def _create_special_aggs_query(category, attribute, sfilters, size):
     }
     return query
 
-def _get_number(str_value):
-    try:
-        return int(str_value)
-    except ValueError:
-        return float(str_value)
+
+def _get_special_agg_values(params, special_sfacet, size=10):
+    special_agg_query = _create_special_aggs_query(params, special_sfacet, size)
+    special_aggs = es.search(body=special_agg_query)
+    sp_string_facet_values = []
+    for bucket in special_aggs['aggregations']['special_agg']['nested_agg']['string_facets_agg']['nested_values']['facets_values']['buckets']:
+        sp_string_facets_obj = bucket['values_src']['hits']['hits'][0]['_source']
+        sp_string_facets_obj['count'] = bucket['doc_count']
+        sp_string_facet_values.append(sp_string_facets_obj)
+    return sp_string_facet_values
+
+
+def get_all_special_agg_values(params):
+    special_sfacet = params.get('facet')
+    size = 100
+    facet_values = _get_special_agg_values(params, special_sfacet, size)
+    return facet_values
 
 
 def update_category(category):
@@ -927,21 +918,10 @@ def _format_price(price):
     return str(int(price)) if price % 1 == 0 else "{:.2f}".format(price)
 
 
-def _get_special_agg_values(category, attribute, sfilters, size):
-    special_agg_query = _create_special_aggs_query(category, attribute, sfilters, size)
-    special_aggs = es.search(body=special_agg_query)
-    sp_string_facet_values = []
-    for bucket in special_aggs['aggregations']['special_agg']['nested_agg']['string_facets_agg']['nested_values']['facets_values']['buckets']:
-        sp_string_facets_obj = bucket['values_src']['hits']['hits'][0]['_source']
-        sp_string_facets_obj['count'] = bucket['doc_count']
-        sp_string_facet_values.append(sp_string_facets_obj)
-    return sp_string_facet_values
+def _get_number(str_value):
+    try:
+        return int(str_value)
+    except ValueError:
+        return float(str_value)
 
 
-def get_all_special_agg_values(params):
-    sfilters = params.getlist('sfacets[]')
-    category = params.get('category')
-    attribute = params.get('facet')
-    size = 100
-    facet_values = _get_special_agg_values(category, attribute, sfilters, size)
-    return facet_values
