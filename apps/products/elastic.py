@@ -132,6 +132,8 @@ def _elastic_get_products(params, excludes):
     for product in products['hits']['hits']:
         source = product['_source']
         source['pk'] = product['_id']
+        for nfacet in source['number_facets']:
+            nfacet['value'] = str(float(nfacet['value']))
         today = datetime.datetime.today()
         for instance in source['products']:
             price = float(instance['price'])
@@ -389,8 +391,8 @@ def get_facets(params):
             'name': source['name'],
             'suffix': source['suffix'],
             'stats': {
-                'min': stats['min'],
-                'max': stats['max'],
+                'min': _get_number(_format_price(stats['min'])),
+                'max': _get_number(_format_price(stats['max'])),
             },
 
         }
