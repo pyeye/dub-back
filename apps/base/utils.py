@@ -1,5 +1,5 @@
 def localize_month(month):
-    serialized_month = int(month) + 1
+    serialized_month = int(month) - 1
     ru_month = [
         'января',
         'февраля',
