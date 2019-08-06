@@ -580,6 +580,10 @@ class AdminCollectionViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         is_active = request.query_params.get('is_active', True) in ['1', 'true', 'True', True]
         queryset = Collection.objects.filter(is_active=is_active)
+        is_public = request.query_params.get('is_active', None)
+        if is_public is not None:
+            is_public_filter = is_public in ['1', 'true', 'True', True]
+            queryset.filter(is_public=is_public_filter)
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = CollectionSerializer(page, many=True)

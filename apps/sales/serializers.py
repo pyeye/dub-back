@@ -117,6 +117,8 @@ class SaleApiSerializer(serializers.ModelSerializer):
             'description',
             'fdate_start',
             'fdate_end',
+            'date_start',
+            'date_end',
             'image',
             'is_active',
         )
@@ -189,7 +191,7 @@ class SaleAdminSerializer(BaseSaleSerializer):
 
         categories = validated_data.pop('categorysale_set', [])
         collections = validated_data.pop('collectionsale_set', [])
-        products = validated_data.pop('products', [])
+        products = validated_data.pop('productsale_set', [])
 
         instance.categories.clear()
         for category in categories:

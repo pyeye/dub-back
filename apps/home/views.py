@@ -1,29 +1,33 @@
 from rest_framework import viewsets, generics, status
-from django.db.models import Count
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-from .serializers import BannerSerializer, AdvertisementSerializer
-from .models import Banner, Advertisement
+from apps.sales.models import Sale
+from apps.sales.serializers import SaleApiSerializer
 from apps.news.models import News
 from apps.news.serializers import NewsSerializer
-from apps.products.models import ProductInfo
-from apps.products.serializers import ProductListSerializer
+from apps.products.models import ProductInfo, Collection
+from apps.products.serializers import ProductListSerializer, CollectionApiSerializer
+from apps.products import elastic
 
 
-class BannerApiView(generics.ListAPIView):
-    serializer_class = BannerSerializer
-    queryset = Banner.objects.all()
+class HomeSalesAPI(APIView):
+    def get(self, request, format=None):
+        queryset = Sale.objects.filter(on_home=True)
+        serializer = SaleApiSerializer(queryset, many=True)
+        return Response(data=serializer.data, status=status.HTTP_200_OK)
 
 
-class AdvertisementApiView(generics.ListAPIView):
-    serializer_class = AdvertisementSerializer
-    queryset = Advertisement.objects.all()
+class HomeCollectionAPI(APIView):
+    def get(self, request, format=None):
+        queryset = Collection.objects.filter(on_home=True, is_active=True)
+        serializer = CollectionApiSerializer(queryset, many=True)
+        return Response(data=serializer.data, status=status.HTTP_200_OK)
 
 
 class HomeNewsApiView(generics.ListAPIView):
     serializer_class = NewsSerializer
-    queryset = News.objects.order_by('-updated_at')[:3]
+    queryset = News.objects.filter(is_active=True).order_by('-updated_at')[:3]
 
 
 class BestsellersApiView(generics.ListAPIView):
@@ -31,9 +35,9 @@ class BestsellersApiView(generics.ListAPIView):
     serializer_class = ProductListSerializer
 
 
-class BestsellersListAPI(APIView):
+class NewProductsListAPI(APIView):
 
     def get(self, request, format=None):
-        category = 'beer'
-        #products = elastic_get_products(category=category)[:6]
-        return Response(category, status=status.HTTP_200_OK)
+        params = request.query_params
+        products = elastic.get_products(params)
+        return Response(products['items'][9:17], status=status.HTTP_200_OK)

@@ -20,8 +20,8 @@ from rest_framework import routers
 from apps.authentication.views import CreateGuestView, JWTUserView, SecretView
 from apps.users.views import CustomerAPIView, PasswordAPIView, CartSessionAPIView, WatchedSessionAPIView
 from apps.news.views import NewsViewSet
-from apps.products.views import CategoryAPIView, TagsListAPI, FacetsListAPI, ProductListAPI, ProductDetailAPI, FacetAllValuesListAPI
-from apps.home.views import BannerApiView, AdvertisementApiView, HomeNewsApiView, BestsellersListAPI
+from apps.products.views import CategoryAPIView, TagsListAPI, FacetsListAPI, ProductListAPI, ProductDetailAPI, FacetAllValuesListAPI, CollectionDetailAPIView
+from apps.home.views import HomeCollectionAPI, HomeSalesAPI, HomeNewsApiView, NewProductsListAPI
 from apps.search.views import SearchListAPI, CompletionListAPI
 from apps.sales.views import SalesViewSet
 
@@ -39,6 +39,7 @@ from apps.products.admin_api import (
 )
 from apps.news.admin_api import AdminNewsViewSet, AdminNewsCategoryViewSet, AdminNewsImageViewSet
 from apps.sales.admin import AdminSaleViewSet, AdminSalesImageViewSet
+from apps.home.admin import AdminHomeSaleViewSet, AdminHomeCollectionViewSet
 
 router = routers.SimpleRouter()
 router.register(r'news', NewsViewSet, base_name='api-news')
@@ -60,12 +61,15 @@ admin_router.register(r'pmanufacturers', AdminProductManufacturerViewSet, base_n
 admin_router.register(r'pnfacets', AdminProductNFacetViewSet, base_name='admin-products-number-facets')
 admin_router.register(r'psfacets', AdminProductSFacetViewSet, base_name='admin-products-string-facets')
 admin_router.register(r'psfacets-values', AdminProductSFacetValueViewSet, base_name='admin-products-string-facets-values')
+admin_router.register(r'home-sales', AdminHomeSaleViewSet, base_name='admin-home-sales')
+admin_router.register(r'home-collections', AdminHomeCollectionViewSet, base_name='admin-home-sales')
 
 urlpatterns = [
     url(r'^admin/', include(admin_router.urls)),
     url(r'^v1/', include(router.urls)),
     url(r'^v1/products/(?P<pk>\d+)/$', ProductDetailAPI.as_view(), name="products-detail"),
     url(r'^v1/products/', ProductListAPI.as_view(), name="products-list"),
+    url(r'^v1/collections/(?P<pk>\d+)/$', CollectionDetailAPIView.as_view(), name="collection-detail"),
     url(r'^v1/search/', SearchListAPI.as_view(), name="products-search"),
     url(r'^v1/completions/', CompletionListAPI.as_view(), name="products-complete"),
     url(r'^v1/auth/user/', JWTUserView.as_view(), name="token-user"),
@@ -74,10 +78,10 @@ urlpatterns = [
     url(r'^v1/category/', CategoryAPIView.as_view(), name="category-api"),
     url(r'^v1/customers/set_password/', PasswordAPIView.as_view(), name="password-api"),
     url(r'^v1/customers/', CustomerAPIView.as_view(), name="customers-api"),
-    url(r'^v1/home/banners/', BannerApiView.as_view(), name="banner-api"),
-    url(r'^v1/home/posters/', AdvertisementApiView.as_view(), name="advertisement-api"),
+    url(r'^v1/home/sales/', HomeSalesAPI.as_view(), name="banner-api"),
+    url(r'^v1/home/collections/', HomeCollectionAPI.as_view(), name="advertisement-api"),
     url(r'^v1/home/news/', HomeNewsApiView.as_view(), name="home-news-api"),
-    url(r'^v1/home/bestsellers/', BestsellersListAPI.as_view(), name="bestseller-api"),
+    url(r'^v1/home/new/', NewProductsListAPI.as_view(), name="new-products-api"),
     url(r'^v1/tags/', TagsListAPI.as_view(), name="tags-list"),
     url(r'^v1/facets/', FacetsListAPI.as_view(), name="facets-list"),
     url(r'^v1/facet/full/', FacetAllValuesListAPI.as_view(), name="facets-all-list"),

@@ -8,7 +8,7 @@ from .models import News, Category
 
 
 class NewsViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = News.objects.all()
+    queryset = News.objects.filter(is_active=True)
     serializer_class = NewsSerializer
 
     @list_route()

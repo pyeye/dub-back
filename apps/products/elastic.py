@@ -130,36 +130,8 @@ def _elastic_get_products(params, excludes):
 
     formatted_products = []
     for product in products['hits']['hits']:
-        source = product['_source']
+        source = _format_product(product['_source'])
         source['pk'] = product['_id']
-        for nfacet in source['number_facets']:
-            nfacet['value'] = str(float(nfacet['value']))
-        today = datetime.datetime.today()
-        for instance in source['products']:
-            price = float(instance['price'])
-            instance['price'] = _format_price(price)
-            if not instance['sales']:
-                continue
-            sales_with_fixed_price = []
-            sales_with_percent_price = []
-            new_price = price
-            for sale in instance['sales']:
-                date_start = datetime.datetime.strptime(sale['date_start'], '%Y-%m-%d')
-                date_end = datetime.datetime.strptime(sale['date_end'], '%Y-%m-%d')
-                if today < date_start or today > date_end:
-                    continue
-                if sale['type'] == 'fixed':
-                    sales_with_fixed_price.append(sale['fixed'])
-                if sale['type'] == 'percent':
-                    sales_with_percent_price.append(sale['percent'])
-            if sales_with_fixed_price:
-                new_price = sales_with_fixed_price[-1]
-            if sales_with_percent_price:
-                percent = sales_with_percent_price[-1]
-                new_price = new_price * ((100 - percent) / 100)
-            if new_price != instance['price']:
-                instance['new_price'] = _format_price(new_price)
-
         formatted_products.append(source)
     return {
         'items': formatted_products,
@@ -169,9 +141,17 @@ def _elastic_get_products(params, excludes):
 
 def get_product(pk):
     product = es.get(index=INDEX, doc_type='_doc', id=pk)
-    source = product['_source']
+    source = _format_product(product['_source'])
+    source['pk'] = product['_id']
+    return source
+
+
+def _format_product(product):
+    source = product
+    for nfacet in source['number_facets']:
+        nfacet['value'] = str(float(nfacet['value']))
     today = datetime.datetime.today()
-    for instance in source['instances']:
+    for instance in source['products']:
         price = float(instance['price'])
         instance['price'] = _format_price(price)
         if not instance['sales']:
@@ -193,7 +173,7 @@ def get_product(pk):
         if sales_with_percent_price:
             percent = sales_with_percent_price[-1]
             new_price = new_price * ((100 - percent) / 100)
-        if new_price != instance['price']:
+        if new_price != price:
             instance['new_price'] = _format_price(new_price)
     return source
 
@@ -258,6 +238,48 @@ def get_categories():
                             "sort": [{"created_at": {"order": "desc"}}],
                             "_source": {"includes": ["name", "products", "category"]}
                         }
+                    },
+                    "string_facets": {
+                        "nested": {"path": "string_facets"},
+                        "aggs": {
+                            "facets_code": {
+                                "terms": {
+                                    "field": "string_facets.slug",
+                                    "size": 20,
+                                    "order": {
+                                        "_key": "asc"
+                                    }
+                                },
+                                "aggs": {
+                                    "facets_src": {
+                                        "top_hits": {
+                                            "size": 1,
+                                            "_source": {"includes": ["string_facets.slug", "string_facets.name"]}
+                                        }
+                                    },
+                                    "facets_nested": {
+                                        "nested": {"path": "string_facets.values"},
+                                        "aggs": {
+                                            "facet_values": {
+                                                "terms": {
+                                                    "field": "string_facets.values.pk",
+                                                    "size": 7
+                                                },
+                                                "aggs": {
+                                                    "facet_values_src": {
+                                                        "top_hits": {
+                                                            "size": 1,
+                                                            "_source": {"includes": ["string_facets.values.pk",
+                                                                                     "string_facets.values.name"]}
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -266,7 +288,27 @@ def get_categories():
     elastic_categories = es.search(index=INDEX, body=query)
     categories = []
     for category in elastic_categories['aggregations']['category']['buckets']:
-        categories.append({'pk': category['category_src']['hits']['hits'][0]['_id'], **category['category_src']['hits']['hits'][0]['_source']})
+        source = {'pk': category['category_src']['hits']['hits'][0]['_id'], **category['category_src']['hits']['hits'][0]['_source']}
+        facets = []
+        for string_facet_aggs in category['string_facets']['facets_code']['buckets']:
+            facet_key = string_facet_aggs['key']
+            facet_name = string_facet_aggs['facets_src']['hits']['hits'][0]['_source']['name']
+            facet_pk = string_facet_aggs['facets_src']['hits']['hits'][0]['_id']
+            string_facet_items = []
+            for facet_item in string_facet_aggs['facets_nested']['facet_values']['buckets']:
+                string_facet_obj = facet_item['facet_values_src']['hits']['hits'][0]['_source']
+                string_facet_obj['count'] = facet_item['doc_count']
+                string_facet_items.append(string_facet_obj)
+            string_facets_obj = {
+                'pk': facet_pk,
+                'slug': facet_key,
+                'values': string_facet_items,
+                'name': facet_name
+            }
+            facets.append(string_facets_obj)
+        source['facets'] = facets
+
+        categories.append(source)
 
     return categories
 
@@ -361,12 +403,14 @@ def get_facets(params):
     for string_facet_aggs in all_facets['aggregations']['facets_filter']['string_facets']['facets_code']['buckets']:
         facet_key = string_facet_aggs['key']
         facet_name = string_facet_aggs['facets_src']['hits']['hits'][0]['_source']['name']
+        facet_pk = string_facet_aggs['facets_src']['hits']['hits'][0]['_id']
         string_facet_items = []
         for facet_item in string_facet_aggs['facets_nested']['facet_values']['buckets']:
             string_facet_obj = facet_item['facet_values_src']['hits']['hits'][0]['_source']
             string_facet_obj['count'] = facet_item['doc_count']
             string_facet_items.append(string_facet_obj)
         string_facets_obj = {
+            'pk': facet_pk,
             'slug': facet_key,
             'values': string_facet_items,
             'name': facet_name
@@ -385,8 +429,10 @@ def get_facets(params):
     number_facets = []
     for number_facet_aggs in all_facets['aggregations']['facets_filter']['number_facets']['facets_code']['buckets']:
         source = number_facet_aggs['facets_src']['hits']['hits'][0]['_source']
+        facet_pk = number_facet_aggs['facets_src']['hits']['hits'][0]['_id']
         stats = number_facet_aggs['facets_stats']
         number_facets_obj = {
+            'pk': facet_pk,
             'slug': source['slug'],
             'name': source['name'],
             'suffix': source['suffix'],
@@ -498,6 +544,23 @@ def _create_filter_query(params, special_sfacet=None):
             }
         }
         filter_query.append(sale_query)
+
+    collection_param = params.get('collections', None)
+    if collection_param is not None:
+        collections = [int(collection) for collection in collection_param.split(',')]
+        collection_query = {
+            "nested": {
+                "path": "products",
+                "query": {
+                    "bool": {
+                        "filter": {
+                            "terms": {"products.collections": collections}
+                        }
+                    }
+                }
+            }
+        }
+        filter_query.append(collection_query)
 
     string_facets_params = params.getlist('sfacets[]')
     if string_facets_params:

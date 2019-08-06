@@ -358,3 +358,17 @@ class CollectionCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Collection
         fields = ('pk', 'name', 'description', 'image', 'products', 'is_public')
+
+    def validate_image(self, value):
+        if not value:
+            raise serializers.ValidationError('Это поле не может быть пустым.')
+
+        return value
+
+
+class CollectionApiSerializer(serializers.ModelSerializer):
+    image = CollectionImageSerializer(read_only=True)
+
+    class Meta:
+        model = Collection
+        fields = ('pk', 'name', 'slug', 'is_public', 'is_active', 'description', 'image')

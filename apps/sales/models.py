@@ -30,6 +30,7 @@ class Sale(models.Model):
     created_at = models.DateField(auto_now_add=True, blank=True)
     updated_at = models.DateField(auto_now=True, blank=True)
     is_active = models.BooleanField(default=True, null=False, blank=True, verbose_name='Активировано')
+    on_home = models.BooleanField(default=False, null=False, blank=True)
     extra = JSONField(blank=True, null=True, default={}, verbose_name='Дополнительно')
 
     def __str__(self):

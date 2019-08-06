@@ -1,11 +1,10 @@
-from rest_framework import viewsets, generics, status
+from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.decorators import list_route
-from rest_framework.exceptions import ValidationError
+from django.shortcuts import get_object_or_404
 
-from .serializers import CategorySerializer
-from .models import ProductInfo, Category
+from .serializers import CollectionApiSerializer
+from .models import Collection
 from . import elastic
 
 
@@ -53,5 +52,13 @@ class CategoryAPIView(APIView):
     def get(self, request, format=None):
         categories = elastic.get_categories()
         return Response(data=categories, status=status.HTTP_200_OK)
-    
 
+
+class CollectionDetailAPIView(APIView):
+
+    def get(self, request, pk, format=None):
+        instance = get_object_or_404(Collection, pk=pk)
+        if not instance.is_active or not instance.is_public:
+            return Response(data='Нет доступа к коллекции', status=status.HTTP_400_BAD_REQUEST)
+        serializer = CollectionApiSerializer(instance)
+        return Response(data=serializer.data, status=status.HTTP_200_OK)
