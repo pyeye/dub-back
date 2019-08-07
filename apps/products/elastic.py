@@ -1,6 +1,7 @@
 import itertools
 import json
 import datetime
+from decimal import Decimal
 
 from elasticsearch import Elasticsearch
 
@@ -152,7 +153,7 @@ def _format_product(product):
         nfacet['value'] = str(float(nfacet['value']))
     today = datetime.datetime.today()
     for instance in source['products']:
-        price = float(instance['price'])
+        price = Decimal(instance['price'])
         instance['price'] = _format_price(price)
         if not instance['sales']:
             continue
@@ -171,7 +172,7 @@ def _format_product(product):
         if sales_with_fixed_price:
             new_price = sales_with_fixed_price[-1]
         if sales_with_percent_price:
-            percent = sales_with_percent_price[-1]
+            percent = Decimal(sales_with_percent_price[-1])
             new_price = new_price * ((100 - percent) / 100)
         if new_price != price:
             instance['new_price'] = _format_price(new_price)
