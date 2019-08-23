@@ -56,6 +56,10 @@ class ProductInfo(models.Model):
     class Meta:
         verbose_name = 'Описание товара'
         verbose_name_plural = 'Описание товаров'
+    
+    @property
+    def name_slug(self):
+        return slugify(self.name, only_ascii=True)
 
 
 class ProductImage(models.Model):

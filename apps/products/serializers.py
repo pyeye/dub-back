@@ -125,7 +125,6 @@ class ProductNFacetsRetrieveSerializer(serializers.ModelSerializer):
 
 
 class ProductInstanceCreateSerializer(serializers.ModelSerializer):
-    pk = serializers.IntegerField(read_only=False)
 
     class Meta:
         model = ProductInstance
@@ -261,6 +260,7 @@ class ProductListSerializer(serializers.ModelSerializer):
         fields = (
             'pk',
             'name',
+            'name_slug',
             'manufacturer',
             'description',
             'instances',

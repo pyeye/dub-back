@@ -237,7 +237,7 @@ def get_categories():
                         "top_hits": {
                             "size": 1,
                             "sort": [{"created_at": {"order": "desc"}}],
-                            "_source": {"includes": ["name", "products", "category"]}
+                            "_source": {"includes": ["name", 'name_slug', "products", "category"]}
                         }
                     },
                     "string_facets": {
@@ -476,6 +476,7 @@ def _create_product_body(product):
 
     body = {
         'name': product['name'],
+        'name_slug': product['name_slug'],
         'manufacturer': {
             'name': product['manufacturer']['name'],
             'slug': product['manufacturer']['slug'],
