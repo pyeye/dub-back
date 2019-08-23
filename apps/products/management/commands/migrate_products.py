@@ -27,13 +27,17 @@ class Command(BaseCommand):
         products_data = []
         for initial_product in initial_products:
             try:
+                print('init')
                 initial_data = self.get_product_data(initial_product)
-            except (ValueError, TypeError, IndexError):
+            except (ValueError, TypeError, IndexError) as e:
+                print(e)
                 continue
             products_data.append(initial_data)
         grouped_products = itertools.groupby(products_data, lambda elem: elem['group_by'])
         for index, (group_by, product) in enumerate(grouped_products):
-            self.create_product(list(product))
+            tmp_prods = list(product)
+            print('go-{0} | len-{1}'.format(index, len(tmp_prods)))
+            self.create_product(tmp_prods)
 
     def get_product_data(self, product_initial):
         measure = self.get_attr('Объем:', product_initial, 'measure', first_only=True)
@@ -41,7 +45,7 @@ class Command(BaseCommand):
             raise ValueError
         data = {
             'sku': randint(0, 10000000),
-            'name': product_initial['title'].split(',')[0].split(maxsplit=1)[1],
+            'name': self.get_product_name(product_initial['title']),
             'category': Category.objects.get(slug='beer'),
             'manufacturer': self.get_attr('Производитель:', product_initial, 'manufacturer', first_only=True),
             'tags': [item.split('/')[0] for item in product_initial['tags']],
@@ -81,13 +85,59 @@ class Command(BaseCommand):
         data['sfacets'] = sfacets
         data['nfacets'] = nfacets
 
-        data['group_by'] = {
+        
+
+        try:
+            values = [value['name'] for value in sfacets['brand']['values']]
+            values.sort()
+            print(values)
+            group_brand = ''.join(values)
+        except KeyError:
+            group_brand = ''
+        
+        try:
+            values = [value['name'] for value in sfacets['type']['values']]
+            values.sort()
+            group_type = ''.join(values)
+        except KeyError:
+            group_type = ''
+
+        try:
+            group_manufacturer = sfacets['manufacturer']
+        except KeyError:
+            group_manufacturer = ''
+        
+        try:
+            values = [value['name'] for value in sfacets['country']['values']]
+            values.sort()
+            group_country = ''.join(values)
+        except KeyError:
+            group_country = ''
+
+        try:
+            values = [value['name'] for value in sfacets['composition']['values']]
+            values.sort()
+            group_composition = ''.join(values)
+        except KeyError:
+            group_composition = ''
+
+        group_by = {
             'name': data['name'],
-            'manufacturer': data['manufacturer'],
-            **sfacets,
+            'manufacturer': group_manufacturer,
+            'brand': group_brand,
+            'type': group_type,
+            'country': group_country,
+            'composition': group_composition,
         }
+        group_hash = hash(json.dumps(group_by, sort_keys=True))
+        data['group_by'] = group_hash
+        print(data['group_by'])
 
         return data
+
+    def get_product_name(self, initial_name):
+        name = initial_name.split(',')[0].split(maxsplit=1)[1]
+        return name.strip().replace('"', '')
 
     def get_attr(self, attr, product, code='', first_only=False, facet=True):
         try:
@@ -95,10 +145,10 @@ class Command(BaseCommand):
         except IndexError:
             return None
 
-        value = row['value'][0] if first_only else [{'name': item} for item in row['value']]
+        value = row['value'][0].strip() if first_only else [{'name': item.strip()} for item in row['value']]
         name = row['title'][:-1]
         return {
-            'name': name,
+            'name': name.strip(),
             'values': value,
             'slug': code
         }
@@ -192,7 +242,7 @@ class Command(BaseCommand):
         return nfacets
 
     def _create_image(self, image):
-        file_path = '{root}/all/images/beer/full/{filename}'.format(
+        file_path = '{root}/all_products/images/beer/full/{filename}'.format(
             root=os.path.dirname(os.path.abspath(__file__)),
             filename=image
         )
