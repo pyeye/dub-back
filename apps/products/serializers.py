@@ -103,6 +103,7 @@ class ProductInstanceSerializer(serializers.ModelSerializer):
             'stock_balance',
             'package_amount',
             'sales',
+            'collections'
         )
 
 
