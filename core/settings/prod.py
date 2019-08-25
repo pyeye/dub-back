@@ -3,7 +3,7 @@ from core.settings.base import *
 
 DEBUG = True
 
-ROOT_URLCONF = 'core.urls.app'
+ROOT_URLCONF = 'core.urls'
 
 REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': (
