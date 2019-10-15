@@ -14,12 +14,12 @@ def upload_location(instance, filename):
 class News(models.Model):
     title = models.CharField(max_length=255, null=False, blank=False, verbose_name='Заголовок')
     description = models.TextField(null=False, blank=False, verbose_name='Описание')
-    category = models.ForeignKey('Category', related_name='news', verbose_name='Категория')
+    category = models.ForeignKey('Category', on_delete=models.CASCADE, related_name='news', verbose_name='Категория')
     image = models.OneToOneField('NewsImage', on_delete=models.SET_NULL, blank=True, null=True, verbose_name='фото', related_name='news')
     created_at = models.DateField(auto_now_add=True, null=False, blank=True, verbose_name='Созданно')
     updated_at = models.DateField(auto_now=True, null=False, blank=True, verbose_name='Обновленно')
     is_active = models.BooleanField(default=True, null=False, blank=True, verbose_name='Активировано')
-    extra = JSONField(blank=True, null=True, default={}, verbose_name='Дополнительно')
+    extra = JSONField(blank=True, null=True, default=dict, verbose_name='Дополнительно')
 
     def __str__(self):
         return self.title
@@ -59,7 +59,7 @@ class Category(models.Model):
     name = models.CharField(max_length=255, null=False, unique=True, blank=False, verbose_name='Название')
     slug = models.CharField(max_length=128, null=False, unique=True, blank=False, verbose_name='Код')
     is_active = models.BooleanField(null=False, blank=True, default=True, verbose_name='Активированно')
-    extra = JSONField(blank=True, null=True, default={}, verbose_name='Дополнительно')
+    extra = JSONField(blank=True, null=True, default=dict, verbose_name='Дополнительно')
 
     def __str__(self):
         return self.name
@@ -72,4 +72,4 @@ class Category(models.Model):
 class NewsImage(models.Model):
     src = models.ImageField(upload_to=upload_location, null=True, blank=True, verbose_name='Фото')
     created_at = models.DateTimeField(auto_now_add=True, null=False, blank=True, verbose_name='Созданно')
-    extra = JSONField(blank=True, null=True, default={}, verbose_name='Дополнительно')
+    extra = JSONField(blank=True, null=True, default=dict, verbose_name='Дополнительно')

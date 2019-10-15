@@ -97,9 +97,10 @@ class ProductInstanceSerializer(serializers.ModelSerializer):
             'pk',
             'sku',
             'images',
-            'measure_count',
-            'measure_value',
+            'measure',
+            'capacity_type',
             'price',
+            'base_price',
             'stock_balance',
             'package_amount',
             'sales',
@@ -133,9 +134,9 @@ class ProductInstanceCreateSerializer(serializers.ModelSerializer):
             'pk',
             'sku',
             'images',
-            'measure_count',
-            'measure_value',
-            'price',
+            'measure',
+            'capacity_type',
+            'base_price',
             'stock_balance',
             'package_amount',
         )
@@ -221,11 +222,11 @@ class ProductCreateSerializer(serializers.ModelSerializer):
             if pk is not None:
                 product_instance = ProductInstance.objects.get(pk=pk)
                 product_instance.sku = instance.pop('sku')
-                product_instance.measure_count = instance.pop('measure_count')
-                product_instance.price = instance.pop('price')
+                product_instance.measure = instance.pop('measure')
+                product_instance.capacity_type = instance.pop('capacity_type')
+                product_instance.base_price = instance.pop('base_price')
                 product_instance.package_amount = instance.pop('package_amount')
                 product_instance.stock_balance = instance.pop('stock_balance')
-                product_instance.measure_value = instance.pop('measure_value')
                 product_instance.save()
             else:
                 product_instance = ProductInstance.objects.create(product_info=product, **instance)
@@ -340,8 +341,7 @@ class CollectionProductInstanceSerializer(serializers.ModelSerializer):
             'product_info',
             'sku',
             'images',
-            'measure_count',
-            'measure_value',
+            'measure',
         )
 
 

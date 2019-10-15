@@ -18,7 +18,7 @@ class Banner(models.Model):
     title = models.CharField(max_length=255, null=False,  blank=False, verbose_name='Название')
     url = models.CharField(max_length=255, null=False, blank=False, verbose_name='Ссылка')
     image = models.ImageField(upload_to=upload_banner_location, null=True, blank=True, verbose_name='Баннер')
-    extra = JSONField(blank=True, null=True, default={}, verbose_name='Дополнительно')
+    extra = JSONField(blank=True, null=True, default=dict, verbose_name='Дополнительно')
 
     def __str__(self):
         return self.title
@@ -32,7 +32,7 @@ class Advertisement(models.Model):
     title = models.CharField(max_length=255, null=False,  blank=False, verbose_name='Название')
     url = models.CharField(max_length=255, null=False, blank=False, verbose_name='Ссылка')
     image = models.ImageField(upload_to=upload_advertisements_location, null=True, blank=True, verbose_name='фото')
-    extra = JSONField(blank=True, null=True, default={}, verbose_name='Дополнительно')
+    extra = JSONField(blank=True, null=True, default=dict, verbose_name='Дополнительно')
 
     def __str__(self):
         return self.title

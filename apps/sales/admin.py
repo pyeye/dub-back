@@ -1,5 +1,8 @@
+from datetime import datetime
+
+import requests
 from rest_framework import viewsets, status
-from rest_framework.decorators import detail_route
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 
@@ -17,8 +20,7 @@ class AdminSaleViewSet(viewsets.ModelViewSet):
     pagination_class = BasePagination
 
     def list(self, request, *args, **kwargs):
-        is_active = request.query_params.get('is_active', True) in ['1', 'true', 'True', True]
-        queryset = Sale.objects.filter(is_active=is_active)
+        queryset = Sale.objects.all()
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = SaleSerializer(page, many=True)
@@ -29,8 +31,8 @@ class AdminSaleViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         serializer = SaleAdminSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        instance = serializer.save()
-        elastic.add_sale(instance)
+        sale = serializer.save()
+        # self._create_sale_task(sale)
         return Response(data=serializer.data, status=status.HTTP_201_CREATED)
 
     def retrieve(self, request, pk=None, *args, **kwargs):
@@ -42,25 +44,36 @@ class AdminSaleViewSet(viewsets.ModelViewSet):
         instance = get_object_or_404(Sale, pk=pk)
         serializer = SaleAdminSerializer(instance, data=request.data)
         serializer.is_valid(raise_exception=True)
-        instance = serializer.save()
-        elastic.update_sale(instance)
+        sale = serializer.save()
+
+        # self._update_sale_task(sale)
+        
         return Response(serializer.data)
+    
+    def _create_sale_task(self, sale):
+        now = datetime.now()
+        if not sale.is_active or now > sale.date_end:
+            return
+        
+        data = {
+            'id': sale.pk,
+            'date_start': sale.date.start,
+            'date_end': sale.date.end,
+            'is_active': sale.is_active,
+        }
+        
+        r = requests.post('http://scheduler:8010/sales', data=data)
+    
+    def _update_sale_task(self, sale):
+        data = {
+            'id': sale.pk,
+            'date_start': sale.date.start,
+            'date_end': sale.date.end,
+            'is_active': sale.is_active,
+        }
+        
+        r = requests.post('http://scheduler:8010/sales', data=data)
 
-    @detail_route(methods=['DELETE'])
-    def deactivate(self, request, pk=None, *args, **kwargs):
-        instance = get_object_or_404(Sale, pk=pk)
-        instance.is_active = False
-        instance.save()
-        elastic.remove_sale(instance)
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-    @detail_route(methods=['PATCH'])
-    def activate(self, request, pk=None, *args, **kwargs):
-        instance = get_object_or_404(Sale, pk=pk)
-        instance.is_active = True
-        instance.save()
-        elastic.add_sale(instance)
-        return Response(status=status.HTTP_200_OK)
 
 
 class AdminSalesImageViewSet(viewsets.ModelViewSet):

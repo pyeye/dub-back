@@ -24,11 +24,11 @@ def index_product(product_model):
     serializer = ProductListSerializer(product_model)
     data = json.loads(json.dumps(serializer.data))
     product_body = _create_product_body(data)
-    es.index(index=INDEX, doc_type='_doc', body=product_body, id=data['pk'])
+    es.index(index=INDEX, doc_type='_doc', body=product_body, id=data['id'])
 
 
 def delete_product(product_model):
-    es.delete(index=INDEX, doc_type='_doc', id=product_model.pk)
+    es.delete(index=INDEX, doc_type='_doc', id=product_model.id)
 
 
 def get_products(params):
@@ -151,31 +151,6 @@ def _format_product(product):
     source = product
     for nfacet in source['number_facets']:
         nfacet['value'] = str(float(nfacet['value']))
-    today = datetime.datetime.today()
-    for instance in source['products']:
-        price = Decimal(instance['price'])
-        instance['price'] = _format_price(price)
-        if not instance['sales']:
-            continue
-        sales_with_fixed_price = []
-        sales_with_percent_price = []
-        new_price = price
-        for sale in instance['sales']:
-            date_start = datetime.datetime.strptime(sale['date_start'], '%Y-%m-%d')
-            date_end = datetime.datetime.strptime(sale['date_end'], '%Y-%m-%d')
-            if today < date_start or today > date_end:
-                continue
-            if sale['type'] == 'fixed':
-                sales_with_fixed_price.append(sale['fixed'])
-            if sale['type'] == 'percent':
-                sales_with_percent_price.append(sale['percent'])
-        if sales_with_fixed_price:
-            new_price = sales_with_fixed_price[-1]
-        if sales_with_percent_price:
-            percent = Decimal(sales_with_percent_price[-1])
-            new_price = new_price * ((100 - percent) / 100)
-        if new_price != price:
-            instance['new_price'] = _format_price(new_price)
     return source
 
 

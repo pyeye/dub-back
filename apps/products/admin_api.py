@@ -2,7 +2,7 @@ import itertools
 import json
 
 from rest_framework import viewsets, generics, status
-from rest_framework.decorators import detail_route, list_route
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import MethodNotAllowed, ValidationError
 from django.shortcuts import get_object_or_404
@@ -112,7 +112,7 @@ class AdminProductViewSet(viewsets.ModelViewSet):
         pass
 
 
-    @list_route(methods=['POST'])
+    @action(methods=['POST'], detail=False)
     def images(self, request):
         serializer = ProductImagesSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -166,7 +166,7 @@ class AdminProductCategoryViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data)
 
-    @detail_route(methods=['DELETE'])
+    @action(methods=['DELETE'], detail=True)
     def deactivate(self, request, *args, **kwargs):
         instance = self.get_object()
         instance.is_active = False
@@ -184,7 +184,7 @@ class AdminProductCategoryViewSet(viewsets.ModelViewSet):
 
 
 
-    @detail_route(methods=['PATCH'])
+    @action(methods=['PATCH'], detail=True)
     def activate(self, request, *args, **kwargs):
         instance = self.get_object()
         instance.is_active = True
@@ -240,7 +240,7 @@ class AdminProductManufacturerViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data)
 
-    @detail_route(methods=['DELETE'])
+    @action(methods=['DELETE'], detail=True)
     def deactivate(self, request, *args, **kwargs):
         instance = self.get_object()
         instance.is_active = False
@@ -258,7 +258,7 @@ class AdminProductManufacturerViewSet(viewsets.ModelViewSet):
 
 
 
-    @detail_route(methods=['PATCH'])
+    @action(methods=['PATCH'], detail=True)
     def activate(self, request, *args, **kwargs):
         instance = self.get_object()
         instance.is_active = True
@@ -314,7 +314,7 @@ class AdminProductTagsViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-    @detail_route(methods=['DELETE'])
+    @action(methods=['DELETE'], detail=True)
     def deactivate(self, request, *args, **kwargs):
         instance = self.get_object()
         instance.is_active = False
@@ -331,7 +331,7 @@ class AdminProductTagsViewSet(viewsets.ModelViewSet):
 
 
 
-    @detail_route(methods=['PATCH'])
+    @action(methods=['PATCH'], detail=True)
     def activate(self, request, *args, **kwargs):
         instance = self.get_object()
         instance.is_active = True
@@ -391,7 +391,7 @@ class AdminProductSFacetViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-    @detail_route(methods=['DELETE'])
+    @action(methods=['DELETE'], detail=True)
     def deactivate(self, request, *args, **kwargs):
         instance = self.get_object()
         instance.is_active = False
@@ -406,7 +406,7 @@ class AdminProductSFacetViewSet(viewsets.ModelViewSet):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-    @detail_route(methods=['PATCH'])
+    @action(methods=['PATCH'], detail=True)
     def activate(self, request, *args, **kwargs):
         instance = self.get_object()
         instance.is_active = True
@@ -415,7 +415,7 @@ class AdminProductSFacetViewSet(viewsets.ModelViewSet):
         return Response(status=status.HTTP_200_OK)
 
 
-    @detail_route(methods=['GET'])
+    @action(methods=['GET'], detail=True)
     def values(self, request, *args, **kwargs):
         is_active = request.query_params.get('is_active', True) in ['1', 'true', 'True', True]
         instance = self.get_object()
@@ -462,7 +462,7 @@ class AdminProductSFacetValueViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-    @detail_route(methods=['DELETE'])
+    @action(methods=['DELETE'], detail=True)
     def deactivate(self, request, *args, **kwargs):
         instance = self.get_object()
         instance.is_active = False
@@ -482,7 +482,7 @@ class AdminProductSFacetValueViewSet(viewsets.ModelViewSet):
 
 
 
-    @detail_route(methods=['PATCH'])
+    @action(methods=['PATCH'], detail=True)
     def activate(self, request, *args, **kwargs):
         instance = self.get_object()
         instance.is_active = True
@@ -542,7 +542,7 @@ class AdminProductNFacetViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-    @detail_route(methods=['DELETE'])
+    @action(methods=['DELETE'], detail=True)
     def deactivate(self, request, *args, **kwargs):
         instance = self.get_object()
         instance.is_active = False
@@ -555,7 +555,7 @@ class AdminProductNFacetViewSet(viewsets.ModelViewSet):
 
 
 
-    @detail_route(methods=['PATCH'])
+    @action(methods=['PATCH'], detail=True)
     def activate(self, request, *args, **kwargs):
         instance = self.get_object()
         instance.is_active = True
@@ -618,7 +618,7 @@ class AdminCollectionViewSet(viewsets.ModelViewSet):
     def destroy(self, request, pk=None, *args, **kwargs):
         pass
 
-    @detail_route(methods=['DELETE'])
+    @action(methods=['DELETE'], detail=True)
     def deactivate(self, request, *args, **kwargs):
         instance = self.get_object()
         instance.is_active = False
@@ -626,7 +626,7 @@ class AdminCollectionViewSet(viewsets.ModelViewSet):
         elastic.remove_collection(instance)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @detail_route(methods=['PATCH'])
+    @action(methods=['PATCH'], detail=True)
     def activate(self, request, *args, **kwargs):
         instance = self.get_object()
         instance.is_active = True

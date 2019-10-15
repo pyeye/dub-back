@@ -1,5 +1,5 @@
 from rest_framework import viewsets, status
-from rest_framework.decorators import detail_route
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import MethodNotAllowed, ValidationError
 from django.shortcuts import get_object_or_404
@@ -45,14 +45,14 @@ class AdminNewsViewSet(viewsets.ModelViewSet):
         serializer.save()
         return Response(serializer.data)
 
-    @detail_route(methods=['DELETE'])
+    @action(methods=['DELETE'], detail=True)
     def deactivate(self, request, pk=None, *args, **kwargs):
         instance = get_object_or_404(News, pk=pk)
         instance.is_active = False
         instance.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @detail_route(methods=['PATCH'])
+    @action(methods=['PATCH'], detail=True)
     def activate(self, request, pk=None, *args, **kwargs):
         instance = get_object_or_404(News, pk=pk)
         instance.is_active = True
@@ -93,7 +93,7 @@ class AdminNewsCategoryViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data)
 
-    @detail_route(methods=['DELETE'])
+    @action(methods=['DELETE'], detail=True)
     def deactivate(self, request, *args, **kwargs):
         instance = self.get_object()
         instance.is_active = False
@@ -106,7 +106,7 @@ class AdminNewsCategoryViewSet(viewsets.ModelViewSet):
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @detail_route(methods=['PATCH'])
+    @action(methods=['PATCH'], detail=True)
     def activate(self, request, *args, **kwargs):
         instance = self.get_object()
         instance.is_active = True

@@ -1,5 +1,5 @@
 from rest_framework import viewsets, status
-from rest_framework.decorators import detail_route
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import MethodNotAllowed, ValidationError
 from django.shortcuts import get_object_or_404
@@ -39,14 +39,14 @@ class AdminHomeSaleViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         raise MethodNotAllowed('DELETE')
 
-    @detail_route(methods=['DELETE'])
+    @action(methods=['DELETE'], detail=True)
     def deactivate(self, request, pk=None, *args, **kwargs):
         instance = get_object_or_404(Sale, pk=pk)
         instance.on_home = False
         instance.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @detail_route(methods=['PATCH'])
+    @action(methods=['PATCH'], detail=True)
     def activate(self, request, pk=None, *args, **kwargs):
         instance = get_object_or_404(Sale, pk=pk)
         instance.on_home = True
@@ -80,14 +80,14 @@ class AdminHomeCollectionViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         raise MethodNotAllowed('DELETE')
 
-    @detail_route(methods=['DELETE'])
+    @action(methods=['DELETE'], detail=True)
     def deactivate(self, request, pk=None, *args, **kwargs):
         instance = get_object_or_404(Collection, pk=pk)
         instance.on_home = False
         instance.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @detail_route(methods=['PATCH'])
+    @action(methods=['PATCH'], detail=True)
     def activate(self, request, pk=None, *args, **kwargs):
         instance = get_object_or_404(Collection, pk=pk)
         instance.on_home = True

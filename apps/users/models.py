@@ -75,7 +75,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 
 class Staff(models.Model):
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, related_name='staff')
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='staff')
     extra = JSONField(blank=True, null=True, default=None, verbose_name='extra')
 
     objects = StaffManager()
@@ -86,7 +86,7 @@ class Staff(models.Model):
 
 
 class Customer(models.Model):
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, related_name='customer')
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='customer')
     surname = models.CharField(max_length=30, blank=True, null=True, default=None, verbose_name='Фамилия')
     extra = JSONField(blank=True, null=True, default=None, verbose_name='extra')
 
@@ -98,7 +98,7 @@ class Customer(models.Model):
 
 
 class Company(models.Model):
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, related_name='company')
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='company')
     name = models.CharField(max_length=30, null=False, blank=False, verbose_name='Название')
     status = models.ForeignKey('CompanyStatus', on_delete=models.CASCADE, default=DEFAULT_COMPANY_STATUS_ID, related_name='status', null=False, blank=False, verbose_name='Статус')
     extra = JSONField(blank=True, null=True, default=None, verbose_name='extra')

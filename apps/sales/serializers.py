@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Sale, SaleImage, CategorySale, CollectionSale, ProductSale, SALE_TYPES
+from .models import Sale, SaleImage, CollectionSale, ProductSale, SALE_TYPES
 
 
 class SaleImageSerializer(serializers.ModelSerializer):
@@ -32,13 +32,6 @@ class BaseSaleSerializer(serializers.ModelSerializer):
         }
 
 
-class CategorySaleSerializer(BaseSaleSerializer):
-
-    class Meta:
-        model = CategorySale
-        fields = ('category', 'details')
-
-
 class CollectionSaleSerializer(BaseSaleSerializer):
 
     class Meta:
@@ -61,31 +54,20 @@ class CollectionListSaleSerializer(serializers.ModelSerializer):
         fields = ('pk', 'name', 'details')
 
 
-class CategoryListSaleSerializer(serializers.ModelSerializer):
-    pk = serializers.IntegerField(source='category.pk')
-    name = serializers.CharField(source='category.name')
-
-    class Meta:
-        model = CategorySale
-        fields = ('pk', 'name', 'details')
-
-
 class ProductListSaleSerializer(serializers.ModelSerializer):
     pk = serializers.IntegerField(source='product.pk')
     sku = serializers.IntegerField(source='product.sku')
-    measure_count = serializers.CharField(source='product.measure_count')
-    measure_value = serializers.CharField(source='product.measure_value')
+    measure = serializers.CharField(source='product.measure')
     product_pk = serializers.IntegerField(source='product.product_info.pk')
     name = serializers.CharField(source='product.product_info.name')
 
     class Meta:
-        model = CategorySale
-        fields = ('pk', 'product_pk', 'sku', 'measure_count', 'measure_value', 'name', 'details')
+        model = ProductSale
+        fields = ('pk', 'product_pk', 'sku', 'measure', 'name', 'details')
 
 
 class SaleSerializer(serializers.ModelSerializer):
     image = SaleImageSerializer(read_only=True)
-    categories = CategoryListSaleSerializer(source='categorysale_set', many=True, read_only=True)
     collections = CollectionListSaleSerializer(source='collectionsale_set', many=True, read_only=True)
     products = ProductListSaleSerializer(source='productsale_set', many=True, read_only=True)
 
@@ -99,7 +81,6 @@ class SaleSerializer(serializers.ModelSerializer):
             'date_start',
             'date_end',
             'image',
-            'categories',
             'collections',
             'products',
             'is_active',
@@ -125,7 +106,6 @@ class SaleApiSerializer(serializers.ModelSerializer):
 
 
 class SaleAdminSerializer(BaseSaleSerializer):
-    categories = CategorySaleSerializer(source='categorysale_set', many=True)
     collections = CollectionSaleSerializer(source='collectionsale_set', many=True)
     products = ProductSaleSerializer(source='productsale_set', many=True)
 
@@ -139,7 +119,6 @@ class SaleAdminSerializer(BaseSaleSerializer):
             'date_start',
             'date_end',
             'image',
-            'categories',
             'collections',
             'products',
             'is_active',
@@ -152,24 +131,19 @@ class SaleAdminSerializer(BaseSaleSerializer):
         return value
 
     def validate(self, data):
-        categories = data.get('categorysale_set', None)
         collections = data.get('collectionsale_set', None)
         products = data.get('productsale_set', None)
-        if categories is None and collections is None and products is None:
+        if collections is None and products is None:
             raise serializers.ValidationError(
-                'Акция должна содержать хотя бы одну позицию категории, коллекции или товара'
+                'Акция должна содержать хотя бы одну позицию коллекции или товара'
             )
         return data
 
     def create(self, validated_data):
-        categories = validated_data.pop('categorysale_set', [])
         collections = validated_data.pop('collectionsale_set', [])
         products = validated_data.pop('productsale_set', [])
 
         sale = Sale.objects.create(**validated_data)
-
-        for category in categories:
-            CategorySale.objects.create(sale=sale, **category)
 
         for collection in collections:
             CollectionSale.objects.create(sale=sale, **collection)
@@ -189,13 +163,8 @@ class SaleAdminSerializer(BaseSaleSerializer):
         instance.is_active = validated_data.pop('is_active')
         instance.save()
 
-        categories = validated_data.pop('categorysale_set', [])
         collections = validated_data.pop('collectionsale_set', [])
         products = validated_data.pop('productsale_set', [])
-
-        instance.categories.clear()
-        for category in categories:
-            CategorySale.objects.create(sale=instance, **category)
 
         instance.collections.clear()
         for collection in collections:

@@ -27,7 +27,6 @@ class Command(BaseCommand):
         products_data = []
         for initial_product in initial_products:
             try:
-                print('init')
                 initial_data = self.get_product_data(initial_product)
             except (ValueError, TypeError, IndexError) as e:
                 print(e)
@@ -40,7 +39,9 @@ class Command(BaseCommand):
             self.create_product(tmp_prods)
 
     def get_product_data(self, product_initial):
-        measure = self.get_attr('Объем:', product_initial, 'measure', first_only=True)
+        initial_measure = self.get_attr('Объем:', product_initial, 'measure', first_only=True)
+        measure = self.format_measure(initial_measure['values'])
+        capacity_type = self.get_attr('Тип ёмкости:', product_initial, 'capacity_type', first_only=True)
         if product_initial['title'].startswith('Уманьпиво'):
             raise ValueError
         data = {
@@ -49,13 +50,12 @@ class Command(BaseCommand):
             'category': Category.objects.get(slug='beer'),
             'manufacturer': self.get_attr('Производитель:', product_initial, 'manufacturer', first_only=True),
             'tags': [item.split('/')[0] for item in product_initial['tags']],
-            'measure_count': measure['values'].split()[0],
-            'measure_value': measure['values'].split()[1],
+            'measure': measure,
             'image': product_initial['images'][0]['path'].split('/')[1],
-            'price': self.randrange(200, 1000, 50),
+            'base_price': self.randrange(200, 1000, 50),
             'stock_balance': self.randrange(100, 1000, 1),
             'package_amount': self.randrange(1, 20, 2),
-            'capacity_type': self.get_attr('Тип ёмкости:', product_initial, 'capacity_type', first_only=True),
+            'capacity_type': capacity_type['values'],
         }
 
         sfacets = {
@@ -90,7 +90,6 @@ class Command(BaseCommand):
         try:
             values = [value['name'] for value in sfacets['brand']['values']]
             values.sort()
-            print(values)
             group_brand = ''.join(values)
         except KeyError:
             group_brand = ''
@@ -131,7 +130,6 @@ class Command(BaseCommand):
         }
         group_hash = hash(json.dumps(group_by, sort_keys=True))
         data['group_by'] = group_hash
-        print(data['group_by'])
 
         return data
 
@@ -169,6 +167,18 @@ class Command(BaseCommand):
             'slug': code,
             'suffix': suffix
         }
+    
+    def format_measure(self, measure):
+        liters_measure = 'л'
+        count, measure_type = measure.split()[:2]
+        count = self._get_number(count)
+        if measure_type.strip().lower() == liters_measure:
+            count = self.convert_measure_to_ml(count)
+        return count
+    
+    def convert_measure_to_ml(self, measure_count):
+        return int(measure_count * 1000)
+
 
     def get_products(self, path):
         products_path = "{root}/{path}".format(path=path, root=os.path.dirname(os.path.abspath(__file__)))
@@ -207,11 +217,11 @@ class Command(BaseCommand):
             images = self._create_image(product_instance['image'])
             instance = {
                 'sku': product_instance['sku'],
-                'measure_count': product_instance['measure_count'],
-                'measure_value': product_instance['measure_value'],
-                'price': product_instance['price'],
+                'measure': product_instance['measure'],
+                'base_price': product_instance['base_price'],
                 'stock_balance': product_instance['stock_balance'],
                 'package_amount': product_instance['package_amount'],
+                'capacity_type': product_instance['capacity_type'],
                 'images': images,
             }
             instances.append(instance)
@@ -221,6 +231,12 @@ class Command(BaseCommand):
         serializer.is_valid(raise_exception=True)
         instance = serializer.save()
         elastic.index_product(instance)
+    
+    def _get_number(self, str_value):
+        try:
+            return int(str_value)
+        except ValueError:
+            return float(str_value)
 
     def _create_sfacets(self, facets):
         facet_ids = []
