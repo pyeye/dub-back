@@ -5,6 +5,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 
 from .serializers import SaleSerializer, SaleAdminSerializer, SaleImageSerializer
 from .models import Sale, SaleImage
@@ -18,6 +19,7 @@ class AdminSaleViewSet(viewsets.ModelViewSet):
     authentication_classes = [OAuth2Authentication]
     permission_classes = (IsTokenAuthenticated, IsStaff)
     pagination_class = BasePagination
+    queryset = Sale.objects.all()
 
     def list(self, request, *args, **kwargs):
         queryset = Sale.objects.all()
@@ -32,7 +34,8 @@ class AdminSaleViewSet(viewsets.ModelViewSet):
         serializer = SaleAdminSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         sale = serializer.save()
-        # self._create_sale_task(sale)
+        #self._create_sale_task(sale)
+        sale.update_product_instances()
         return Response(data=serializer.data, status=status.HTTP_201_CREATED)
 
     def retrieve(self, request, pk=None, *args, **kwargs):
@@ -46,19 +49,29 @@ class AdminSaleViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         sale = serializer.save()
 
-        # self._update_sale_task(sale)
+        #self._update_sale_task(sale)
+        sale.update_product_instances()
         
         return Response(serializer.data)
     
+    @action(methods=['DELETE'], detail=True)
+    def deactivate(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.is_active = False
+        instance.save()
+        instance.delete_product_instances()
+
+        return Response(status=status.HTTP_200_OK)
+    
     def _create_sale_task(self, sale):
-        now = datetime.now()
-        if not sale.is_active or now > sale.date_end:
-            return
+        now = timezone.now()
+        #if not sale.is_active or now > sale.date_end:
+        #    return
         
         data = {
             'id': sale.pk,
-            'date_start': sale.date.start,
-            'date_end': sale.date.end,
+            'date_start': sale.date_start,
+            'date_end': sale.date_end,
             'is_active': sale.is_active,
         }
         
@@ -67,8 +80,8 @@ class AdminSaleViewSet(viewsets.ModelViewSet):
     def _update_sale_task(self, sale):
         data = {
             'id': sale.pk,
-            'date_start': sale.date.start,
-            'date_end': sale.date.end,
+            'date_start': sale.date_start,
+            'date_end': sale.date_end,
             'is_active': sale.is_active,
         }
         

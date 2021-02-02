@@ -10,7 +10,6 @@ from .managers import RelatedProductManager
 
 def upload_location(instance, filename):
     now = datetime.datetime.now()
-    filename = uuid.uuid4().hex + '.jpg'
     return "product/{year}/{filename}".format(year=now.year, filename=filename)
 
 
@@ -27,23 +26,13 @@ def upload_collection_location(instance, filename):
 
 
 class ProductInfo(models.Model):
-    ACTIVE = 'active'
-    DRAFT = 'draft'
-    ARCHIVE = 'archive'
-    PRODUCT_STATUS_CHOICES = (
-        (ACTIVE, 'Активно'),
-        (DRAFT, 'Черновик'),
-        (ARCHIVE, 'Архив'),
-    )
-
     name = models.CharField(max_length=255, null=False,  blank=False, verbose_name='Название')
     manufacturer = models.ForeignKey('Manufacturer', on_delete=models.CASCADE, null=False,  blank=False, related_name='product_info', verbose_name='Производитель')
     description = models.TextField(null=True, blank=True, verbose_name='Описание')
     category = models.ForeignKey('Category', on_delete=models.CASCADE, null=False,  blank=False, related_name='menu', verbose_name='Категория')
     sfacets = models.ManyToManyField('SFacetValue', blank=True,  verbose_name='парамеры')
-    nfacets = models.ManyToManyField('NFacet', blank=True,  through='NFacetValue', verbose_name='парамеры')
+    nfacets = models.ManyToManyField('NFacetValue', blank=True,  verbose_name='парамеры')
     tags = models.ManyToManyField('Tags', blank=True, verbose_name='Тэги')
-    status = models.CharField(max_length=128, choices=PRODUCT_STATUS_CHOICES, default=DRAFT)
     extra = JSONField(blank=True, null=True, default=dict, verbose_name='Дополнительно')
     created_at = models.DateTimeField(auto_now_add=True, null=False, blank=True, verbose_name='Созданно')
 
@@ -61,6 +50,10 @@ class ProductInfo(models.Model):
     def name_slug(self):
         return slugify(self.name, only_ascii=True)
 
+    @property
+    def is_active(self):
+        return any([instance.status == ProductInstance.STATUS_ACTIVE for instance in self.instances.all()])
+
 
 class ProductImage(models.Model):
     instance = models.ForeignKey('ProductInstance', on_delete=models.CASCADE, blank=True, null=True, verbose_name='Товар', related_name='images')
@@ -72,6 +65,15 @@ class ProductImage(models.Model):
 
 
 class ProductInstance(models.Model):
+    STATUS_ACTIVE = 'active'
+    STATUS_DRAFT = 'draft'
+    STATUS_ARCHIVE = 'archive'
+    PRODUCT_STATUS_CHOICES = (
+        (STATUS_ACTIVE, 'Активно'),
+        (STATUS_DRAFT, 'Черновик'),
+        (STATUS_ARCHIVE, 'Архив'),
+    )
+
     sku = models.BigIntegerField(null=False, blank=False, verbose_name='Артикул')
     product_info = models.ForeignKey(ProductInfo, on_delete=models.CASCADE, blank=False, null=False, related_name='instances', verbose_name='Инфо')
     measure = models.IntegerField(null=False, blank=False, verbose_name='Количество в миллилитрах')
@@ -84,16 +86,18 @@ class ProductInstance(models.Model):
     collections = JSONField(blank=True, null=True, default=list)
     extra = JSONField(blank=True, null=True, default=dict, verbose_name='Дополнительно')
     created_at = models.DateTimeField(auto_now_add=True, null=False, blank=True, verbose_name='Созданно')
-    is_active = models.BooleanField(default=True, null=False, blank=True, verbose_name='Активированно')
+    status = models.CharField(max_length=128, choices=PRODUCT_STATUS_CHOICES, default=STATUS_DRAFT)
 
     def __str__(self):
         return str(self.sku)
 
+    @property
+    def is_active(self):
+        return self.status == STATUS_ACTIVE
+
     class Meta:
         verbose_name = 'Товар'
         verbose_name_plural = 'Товары'
-
-
 
 
 class Category(models.Model):
@@ -186,7 +190,7 @@ class NFacet(models.Model):
 
 class NFacetValue(models.Model):
     facet = models.ForeignKey(NFacet, related_name='values', on_delete=models.CASCADE)
-    product_info = models.ForeignKey(ProductInfo, on_delete=models.CASCADE)
+    #product_info = models.ForeignKey(ProductInfo, on_delete=models.CASCADE)
     value = models.DecimalField(null=False, blank=False, max_digits=15, decimal_places=5)
     extra = JSONField(blank=True, null=True, default=dict, verbose_name='Дополнительно')
 

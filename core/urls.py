@@ -20,13 +20,14 @@ from rest_framework import routers
 from apps.authentication.views import CreateGuestView, JWTUserView, SecretView
 from apps.users.views import CustomerAPIView, PasswordAPIView, CartSessionAPIView, WatchedSessionAPIView
 from apps.news.views import NewsViewSet
-from apps.products.views import CategoryAPIView, TagsListAPI, FacetsListAPI, ProductListAPI, ProductDetailAPI, FacetAllValuesListAPI, CollectionDetailAPIView
+from apps.products.views import CategoryAPIView, TagsListAPI, FacetsListAPI, ProductListAPI, ProductDetailAPI, ProductDetailInstancesAPI, FacetAllValuesListAPI, CollectionDetailAPIView
 from apps.home.views import HomeCollectionAPI, HomeSalesAPI, HomeNewsApiView, NewProductsListAPI
 from apps.search.views import SearchListAPI, CompletionListAPI
 from apps.sales.views import SalesViewSet
 
 from apps.products.admin_api import (
     AdminProductViewSet,
+    AdminProductInstanceViewSet,
     AdminProductCategoryViewSet,
     AdminProductTagsViewSet,
     AdminProductManufacturerViewSet,
@@ -54,6 +55,7 @@ admin_router.register(r'simages', AdminSalesImageViewSet, basename='admin-sales-
 admin_router.register(r'sales', AdminSaleViewSet, basename='admin-sales')
 admin_router.register(r'ncategories', AdminNewsCategoryViewSet, basename='admin-news-category')
 admin_router.register(r'products', AdminProductViewSet, basename='admin-products')
+admin_router.register(r'product-instances', AdminProductInstanceViewSet, basename='admin-product-instances')
 admin_router.register(r'pimages', AdminProductImageViewSet, basename='admin-products-images')
 admin_router.register(r'pcategories', AdminProductCategoryViewSet, basename='admin-products-category')
 admin_router.register(r'ptags', AdminProductTagsViewSet, basename='admin-products-tags')
@@ -69,6 +71,7 @@ urlpatterns = [
     url(r'^v1/', include(router.urls)),
     url(r'^v1/products/(?P<pk>\d+)/$', ProductDetailAPI.as_view(), name="products-detail"),
     url(r'^v1/products/', ProductListAPI.as_view(), name="products-list"),
+    url(r'^v1/product-instances/(?P<pk>\d+)/$', ProductDetailInstancesAPI.as_view(), name="products-detail-instances"),
     url(r'^v1/collections/(?P<pk>\d+)/$', CollectionDetailAPIView.as_view(), name="collection-detail"),
     url(r'^v1/search/', SearchListAPI.as_view(), name="products-search"),
     url(r'^v1/completions/', CompletionListAPI.as_view(), name="products-complete"),

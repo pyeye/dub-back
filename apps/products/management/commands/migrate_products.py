@@ -218,6 +218,7 @@ class Command(BaseCommand):
             instance = {
                 'sku': product_instance['sku'],
                 'measure': product_instance['measure'],
+                'status': 'active',
                 'base_price': product_instance['base_price'],
                 'stock_balance': product_instance['stock_balance'],
                 'package_amount': product_instance['package_amount'],
@@ -230,7 +231,7 @@ class Command(BaseCommand):
         serializer = ProductCreateSerializer(data=product_data)
         serializer.is_valid(raise_exception=True)
         instance = serializer.save()
-        elastic.index_product(instance)
+        elastic.index_products(instance)
     
     def _get_number(self, str_value):
         try:

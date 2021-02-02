@@ -3,8 +3,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 
-from .serializers import CollectionApiSerializer
-from .models import Collection
+from .serializers import CollectionApiSerializer, CollectionSerializer, ProductInstanceSerializer, ProductInfoPublicSerializer
+from .models import Collection, ProductInfo, ProductInstance
 from . import elastic
 
 
@@ -19,8 +19,20 @@ class ProductListAPI(APIView):
 class ProductDetailAPI(APIView):
 
     def get(self, request, pk, format=None):
-        product = elastic.get_product(pk=pk)
-        return Response(product, status=status.HTTP_200_OK)
+        product_info = get_object_or_404(ProductInfo, pk=pk)
+        if not product_info.instances:
+            return Response('Нет активных товаров', status=status.HTTP_404_NOT_FOUND)
+        serializer = ProductInfoPublicSerializer(product_info)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ProductDetailInstancesAPI(APIView):
+    
+    def get(self, request, pk, format=None):
+        product_info = get_object_or_404(ProductInfo, pk=pk)
+        product_instances = product_info.instances.filter(status=ProductInstance.STATUS_ACTIVE)
+        serialized_data = ProductInstanceSerializer(product_instances, many=True)
+        return Response(serialized_data.data, status=status.HTTP_200_OK)
 
 
 class TagsListAPI(APIView):

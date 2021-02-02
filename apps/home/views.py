@@ -40,4 +40,4 @@ class NewProductsListAPI(APIView):
     def get(self, request, format=None):
         params = request.query_params
         products = elastic.get_products(params)
-        return Response(products['items'][9:17], status=status.HTTP_200_OK)
+        return Response(products['items'][:10], status=status.HTTP_200_OK)

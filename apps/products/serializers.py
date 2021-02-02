@@ -30,6 +30,29 @@ class NFacetSerializer(serializers.ModelSerializer):
         fields = ('pk', 'name', 'slug', 'suffix', 'is_active')
 
 
+class NFacetListSerializer(serializers.ModelSerializer):
+    position = serializers.SerializerMethodField()
+
+    class Meta:
+        model = NFacet
+        fields = ('pk', 'name', 'slug', 'suffix', 'is_active', 'position')
+    
+    def get_position(self, obj):
+        try:
+            order = obj.extra['order']
+        except KeyError as e:
+            order = 1
+        return order
+
+
+class NFacetValueListSerializer(serializers.ModelSerializer):
+    facet = NFacetListSerializer(read_only=True)
+
+    class Meta:
+        model = NFacetValue
+        fields = ('pk', 'facet', 'value')
+
+
 class SFacetValueRelatedSerializer(serializers.ModelSerializer):
 
     class Meta:
@@ -38,10 +61,19 @@ class SFacetValueRelatedSerializer(serializers.ModelSerializer):
 
 
 class SFacetListSerializer(serializers.ModelSerializer):
+    position = serializers.SerializerMethodField()
 
     class Meta:
         model = SFacet
-        fields = ('pk', 'name', 'slug', 'is_active')
+        fields = ('pk', 'name', 'slug', 'is_active', 'position')
+    
+
+    def get_position(self, obj):
+        try:
+            order = obj.extra['order']
+        except KeyError as e:
+            order = 1
+        return order
 
 
 class SFacetValueListSerializer(serializers.ModelSerializer):
@@ -97,6 +129,7 @@ class ProductInstanceSerializer(serializers.ModelSerializer):
             'pk',
             'sku',
             'images',
+            'status',
             'measure',
             'capacity_type',
             'price',
@@ -108,11 +141,11 @@ class ProductInstanceSerializer(serializers.ModelSerializer):
         )
 
 
-class ProductNFacetsValueSerializer(serializers.ModelSerializer):
+class ProductNFacetValueSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = NFacetValue
-        fields = ('facet', 'value',)
+        fields = '__all__'
 
 
 class ProductNFacetsRetrieveSerializer(serializers.ModelSerializer):
@@ -139,18 +172,39 @@ class ProductInstanceCreateSerializer(serializers.ModelSerializer):
             'base_price',
             'stock_balance',
             'package_amount',
+            'status',
         )
 
     def validate_images(self, value):
         if not value:
             raise serializers.ValidationError('Это поле не может быть пустым.')
+        
+        main_images = [image.pk for image in value if image.is_main]
+        if len(main_images) != 1:
+            raise serializers.ValidationError('Должна быть одна основная  фотография')
 
         return value
 
+    def update(self, instance, validated_data):
+        images = validated_data.pop('images')
+        instance.sku = validated_data.pop('sku')
+        instance.measure = validated_data.pop('measure')
+        instance.capacity_type = validated_data.pop('capacity_type')
+        instance.base_price = validated_data.pop('base_price')
+        instance.status = validated_data.pop('status')
+        instance.package_amount = validated_data.pop('package_amount')
+        instance.stock_balance = validated_data.pop('stock_balance')
+        instance.save()
+
+        for image in images:
+            image.instance = instance
+            image.save()
+
+        return instance
+            
 
 class ProductCreateSerializer(serializers.ModelSerializer):
     instances = ProductInstanceCreateSerializer(many=True)
-    nfacets = ProductNFacetsValueSerializer(source='nfacetvalue_set', many=True)
 
     class Meta:
         model = ProductInfo
@@ -164,25 +218,26 @@ class ProductCreateSerializer(serializers.ModelSerializer):
             'tags',
             'sfacets',
             'nfacets',
-            'status',
+            'extra',
         )
 
     def validate(self, data):
         if len(data['instances']) == 0:
             raise serializers.ValidationError('Требуется минимум одна позиция товара')
 
-        for instance in data['instances']:
-            if len(instance['images']) > 0:
-                main_images = [image.pk for image in instance['images'] if image.is_main]
-                if len(main_images) != 1:
-                    raise serializers.ValidationError('Должна быть одна основная  фотография')
+        #for instance in data['instances']:
+        #    if len(instance['images']) > 0:
+        #        main_images = [image.pk for image in instance['images'] if image.is_main]
+        #        if len(main_images) != 1:
+        #            raise serializers.ValidationError('Должна быть одна основная  фотография')
 
         return data
 
 
     def create(self, validated_data):
         instances = validated_data.pop('instances')
-        nfacets = validated_data.pop('nfacetvalue_set')
+        #nfacets = validated_data.pop('nfacetvalue_set')
+        nfacets = validated_data.pop('nfacets')
         tags = validated_data.pop('tags')
         sfacets = validated_data.pop('sfacets')
 
@@ -190,6 +245,7 @@ class ProductCreateSerializer(serializers.ModelSerializer):
 
         for instance in instances:
             images = instance.pop('images')
+            instance['price'] = instance['base_price']
             product_instance = ProductInstance.objects.create(product_info=product_info, **instance)
             for image in images:
                 image.instance = product_instance
@@ -197,9 +253,11 @@ class ProductCreateSerializer(serializers.ModelSerializer):
 
         product_info.tags.add(*tags)
         product_info.sfacets.add(*sfacets)
+        
+        product_info.nfacets.add(*nfacets)
 
-        for nfacet in nfacets:
-            NFacetValue.objects.create(product_info=product_info, **nfacet)
+        #for nfacet in nfacets:
+        #    NFacetValue.objects.create(product_info=product_info, **nfacet)
 
         return product_info
 
@@ -211,30 +269,51 @@ class ProductCreateSerializer(serializers.ModelSerializer):
         product.description = validated_data.pop('description')
         product.save()
 
-        instances = validated_data.pop('instances')
-        nfacets = validated_data.pop('nfacetvalue_set', [])
+        nfacets = validated_data.pop('nfacets', [])
         tags = validated_data.pop('tags', [])
         sfacets = validated_data.pop('sfacets', [])
 
-        for instance in instances:
-            images = instance.pop('images')
-            pk = instance.pop('pk', None)
-            if pk is not None:
-                product_instance = ProductInstance.objects.get(pk=pk)
-                product_instance.sku = instance.pop('sku')
-                product_instance.measure = instance.pop('measure')
-                product_instance.capacity_type = instance.pop('capacity_type')
-                product_instance.base_price = instance.pop('base_price')
-                product_instance.package_amount = instance.pop('package_amount')
-                product_instance.stock_balance = instance.pop('stock_balance')
-                product_instance.save()
-            else:
-                product_instance = ProductInstance.objects.create(product_info=product, **instance)
+        product.tags.clear()
+        product.tags.add(*tags)
 
-            for image in images:
-                image.instance = product_instance
-                image.save()
+        product.sfacets.clear()
+        product.sfacets.add(*sfacets)
 
+        product.nfacets.clear()
+        for nfacet in nfacets:
+            NFacetValue.objects.create(product_info=product, **nfacet)
+
+        return product
+
+class AdminProductInfoSerializer(serializers.ModelSerializer):
+    nfacets = ProductNFacetValueSerializer(many=True)
+    instances = ProductInstanceCreateSerializer(many=True)
+
+    class Meta:
+        model = ProductInfo
+        fields = (
+            'pk',
+            'name',
+            'manufacturer',
+            'description',
+            'category',
+            'tags',
+            'sfacets',
+            'nfacets',
+            'instances',
+        )
+    
+    def update(self, product, validated_data):
+        product.name = validated_data.pop('name')
+        product.category = validated_data.pop('category')
+        product.status = validated_data.pop('status')
+        product.manufacturer = validated_data.pop('manufacturer')
+        product.description = validated_data.pop('description')
+        product.save()
+
+        nfacets = validated_data.pop('nfacets', [])
+        tags = validated_data.pop('tags', [])
+        sfacets = validated_data.pop('sfacets', [])
 
         product.tags.clear()
         product.tags.add(*tags)
@@ -249,12 +328,50 @@ class ProductCreateSerializer(serializers.ModelSerializer):
         return product
 
 
+class ProductInfoPublicSerializer(serializers.ModelSerializer):
+    category = CategorySerializer(read_only=True)
+    manufacturer = ManufacturerSerializer(read_only=True)
+    tags = TagsSerializer(many=True, read_only=True)
+    instances = serializers.SerializerMethodField()
+    facets = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProductInfo
+        fields = (
+            'pk',
+            'name',
+            'name_slug',
+            'manufacturer',
+            'description',
+            'instances',
+            'category',
+            'tags',
+            'facets',
+            'created_at',
+            'extra',
+        )
+    
+    def get_instances(self, obj):
+        instances_obj = obj.instances.filter(status=ProductInstance.STATUS_ACTIVE)
+        serializer = ProductInstanceSerializer(instances_obj, many=True)
+        return serializer.data
+    
+    def get_facets(self, obj):
+        from . import elastic
+        elastic_product = elastic.get_product(pk=obj.instances.first().pk)
+        tmp_sfacets = [{ 'type': 'string', **sfacet } for sfacet in elastic_product['string_facets']]
+        tmp_nfacets = [{ 'type': 'number', **nfacet } for nfacet in elastic_product['number_facets']]
+        facets = tmp_nfacets + tmp_sfacets
+        facets.sort(key=lambda elem: elem['name'])
+        return facets
+
+
 class ProductListSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
     manufacturer = ManufacturerSerializer(read_only=True)
     tags = TagsSerializer(many=True, read_only=True)
     sfacets = SFacetValueListSerializer(many=True, read_only=True)
-    nfacets = ProductNFacetsValueSerializer(source='nfacetvalue_set', many=True, read_only=True)
+    nfacets = ProductNFacetValueSerializer(many=True, read_only=True)
     instances = ProductInstanceSerializer(many=True, read_only=True)
 
     class Meta:
@@ -270,8 +387,8 @@ class ProductListSerializer(serializers.ModelSerializer):
             'tags',
             'sfacets',
             'nfacets',
-            'status',
             'created_at',
+            'extra',
         )
 
 
@@ -292,11 +409,25 @@ class ProductTableListSerializer(serializers.ModelSerializer):
         )
 
 
+class ProductInstanceTableSerializer(serializers.ModelSerializer):
+    category = serializers.ReadOnlyField(source='product_info.category.name')
+    name = serializers.ReadOnlyField(source='product_info.name')
+
+    class Meta:
+        model = ProductInstance
+        fields = (
+            'pk',
+            'sku',
+            'measure',
+            'category',
+            'name',
+        )
+
+
 class ProductRetriveSerializer(serializers.ModelSerializer):
     sfacets = SFacetValueListSerializer(many=True, read_only=True)
-    nfacets = ProductNFacetsRetrieveSerializer(source='nfacetvalue_set', many=True, read_only=True)
+    nfacets = ProductNFacetsRetrieveSerializer(many=True, read_only=True)
     instances = ProductInstanceSerializer(many=True, read_only=True)
-
     class Meta:
         model = ProductInfo
         fields = (
@@ -309,7 +440,6 @@ class ProductRetriveSerializer(serializers.ModelSerializer):
             'tags',
             'sfacets',
             'nfacets',
-            'status',
         )
 
 

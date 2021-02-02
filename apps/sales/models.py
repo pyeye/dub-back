@@ -1,11 +1,13 @@
 import uuid
 import datetime
+from decimal import Decimal
 
 from django.contrib.postgres.fields import JSONField, DateTimeRangeField
 from django.db import models
 
 from apps.products.models import Category, Collection, ProductInstance
 from apps.base.utils import localize_month
+from . import elastic
 
 
 SALE_TYPES = ['condition', 'percent', 'fixed']
@@ -67,8 +69,8 @@ class Sale(models.Model):
         sale_info = {
             'pk': self.pk,
             'name': self.name,
-            'date_start': self.date_start,
-            'date_end': self.date_end,
+            'date_start': self.date_start.strftime('%Y-%m-%dT%H:%M:%S%z'),
+            'date_end': self.date_end.strftime('%Y-%m-%dT%H:%M:%S%z'),
         }
 
         for collection_set in self.collectionsale_set.all():
@@ -94,7 +96,7 @@ class Sale(models.Model):
         ]
 
         ProductInstance.objects.bulk_update(product_instances, ['sales', 'price'])
-        es.add_sale(es_product_instances)
+        elastic.add_sale(es_product_instances)
     
     def delete_product_instances(self):
         es_product_instances = list()
@@ -113,7 +115,7 @@ class Sale(models.Model):
             es_product_instances.append(es_product_instance)
         
         ProductInstance.objects.bulk_update(instances, ['sales', 'price'])
-        es.delete_sale(es_product_instances)
+        elastic.delete_sale(es_product_instances)
             
     
     def _get_price(self, base_price, sales):
@@ -130,7 +132,7 @@ class Sale(models.Model):
         if sales_with_percent_price:
             percent = Decimal(sales_with_percent_price[-1])
             price = price * ((100 - percent) / 100)
-        return _format_price(price)
+        return self._format_price(price)
     
     def _format_price(self, price):
         return str(int(price)) if price % 1 == 0 else "{:.2f}".format(price)

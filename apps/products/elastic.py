@@ -3,10 +3,10 @@ import json
 import datetime
 from decimal import Decimal
 
-from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch, helpers
 
-from .serializers import ProductListSerializer
-from .models import NFacet
+from .serializers import ProductListSerializer, ProductInstanceSerializer
+from .models import NFacet, ProductInstance
 
 INDEX = 'products_dev'
 CONFIG = {
@@ -20,11 +20,49 @@ PAGE_SIZE = 24
 es = Elasticsearch([CONFIG])
 
 
-def index_product(product_model):
+def index_products(product_model):
     serializer = ProductListSerializer(product_model)
     data = json.loads(json.dumps(serializer.data))
-    product_body = _create_product_body(data)
-    es.index(index=INDEX, doc_type='_doc', body=product_body, id=data['id'])
+    product_info_source = _create_product_info_source(data)
+    actions = []
+    count_instances = len(data['instances'])
+    for product_instance in data['instances']:
+        # TODO: if в цикле - плохо. сделать цикл по уже фильтрованным инстансам
+        if product_instance['status'] != ProductInstance.STATUS_ACTIVE:
+            continue
+        source = {
+            **product_info_source,
+            'count_instances': count_instances,
+            'instance': product_instance,
+        }
+        actions.append({
+            '_index': INDEX,
+            '_id': product_instance['pk'],
+            '_type': '_doc',
+            '_op_type': 'create',
+            '_source': source,
+        })
+
+    if actions:
+        helpers.bulk(es, actions)
+
+
+def index_product_instance(product_info, product_instance):
+    if product_instance.status != ProductInstance.STATUS_ACTIVE:
+        es.delete(index=INDEX, doc_type='_doc', id=product_instance.pk)
+        return
+    info_serializer = ProductListSerializer(product_info)
+    info_data = json.loads(json.dumps(info_serializer.data))
+
+    instance_serializer = ProductInstanceSerializer(product_instance)
+    instance_data = json.loads(json.dumps(instance_serializer.data))
+
+    product_info_source = _create_product_info_source(info_data)
+    source = {
+        **product_info_source,
+        'instance': instance_data,
+    }
+    es.index(index=INDEX, body=source, doc_type='_doc', id=instance_data['pk'])
 
 
 def delete_product(product_model):
@@ -40,25 +78,15 @@ def add_collection(collection_model):
     product_ids = [prod.pk for prod in collection_model.products.all()]
     body = {
         "query": {
-            "nested": {
-                "path": "products",
-                "query": {
-                    "bool": {"filter": {"terms": {"products.pk": product_ids}}}
-                }
-            }
+            "bool": {"filter": {"terms": {"instance.pk": product_ids}}}
         },
         "script": {
             "lang": "painless",
             "source": """
-                for (int i = 0; i < ctx._source.products.length; ++i) {
-                    if (params.products.contains(ctx._source.products[i]['pk'])) {
-                        ctx._source.products[i].collections.add(params.collection);
-                    }
-                }
+                ctx._source.instance.collections.add(params.collection);
             """,
             "params": {
                 "collection": collection_model.pk,
-                "products": product_ids
             }
         }
     }
@@ -68,21 +96,14 @@ def add_collection(collection_model):
 def remove_collection(collection_model):
     body = {
         "query": {
-            "nested": {
-                "path": "products",
-                "query": {
-                    "bool": {"filter": {"term": {"products.collections": collection_model.pk}}}
-                }
-            }
+            "bool": {"filter": {"term": {"instance.collections": collection_model.pk}}}
         },
         "script": {
             "lang": "painless",
             "source": """
-                for (int i = 0; i < ctx._source.products.length; ++i) {
-                  int index = ctx._source.products[i].collections.indexOf(params.collection);
-                  if (index >= 0) {
-                    ctx._source.products[i].collections.remove(index);
-                  }
+                int index = ctx._source.instance.collections.indexOf(params.collection);
+                if (index >= 0) {
+                    ctx._source.instance.collections.remove(index);
                 }
             """,
             "params": {
@@ -264,7 +285,10 @@ def get_categories():
     elastic_categories = es.search(index=INDEX, body=query)
     categories = []
     for category in elastic_categories['aggregations']['category']['buckets']:
-        source = {'pk': category['category_src']['hits']['hits'][0]['_id'], **category['category_src']['hits']['hits'][0]['_source']}
+        source = {
+            'pk': category['category_src']['hits']['hits'][0]['_id'],
+            **category['category_src']['hits']['hits'][0]['_source'],
+        }
         facets = []
         for string_facet_aggs in category['string_facets']['facets_code']['buckets']:
             facet_key = string_facet_aggs['key']
@@ -370,6 +394,33 @@ def get_facets(params):
                         }
                     }
                 }
+            },
+            "all_number_facets": {
+                "nested": {"path": "number_facets"},
+                "aggs": {
+                    "facets_code": {
+                        "terms": {
+                            "field": "number_facets.slug",
+                            "size": 100,
+                            "order": {
+                                "_key": "asc"
+                            }
+                        },
+                        "aggs": {
+                            "facets_src": {
+                                "top_hits": {
+                                    "size": 1,
+                                    "_source": {"includes": ["number_facets"]}
+                                }
+                            },
+                            "facets_stats": {
+                                "stats": {
+                                    "field": "number_facets.value"
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -403,10 +454,13 @@ def get_facets(params):
                 string_facets[facet_index]['values'] = sp_string_facet_items
 
     number_facets = []
+    tmp_all_number_facets = all_facets['aggregations']['all_number_facets']['facets_code']['buckets']
+    all_number_facets = {item['key']: item['facets_stats'] for item in tmp_all_number_facets}
     for number_facet_aggs in all_facets['aggregations']['facets_filter']['number_facets']['facets_code']['buckets']:
         source = number_facet_aggs['facets_src']['hits']['hits'][0]['_source']
         facet_pk = number_facet_aggs['facets_src']['hits']['hits'][0]['_id']
         stats = number_facet_aggs['facets_stats']
+        all_stats = all_number_facets[source['slug']]
         number_facets_obj = {
             'pk': facet_pk,
             'slug': source['slug'],
@@ -416,6 +470,10 @@ def get_facets(params):
                 'min': _get_number(_format_price(stats['min'])),
                 'max': _get_number(_format_price(stats['max'])),
             },
+            'all_stats': {
+                'min': _get_number(_format_price(all_stats['min'])),
+                'max': _get_number(_format_price(all_stats['max'])),
+            },
 
         }
         number_facets.append(number_facets_obj)
@@ -423,17 +481,20 @@ def get_facets(params):
     return string_facets, number_facets
 
 
-def _create_product_body(product):
+def _create_product_info_source(product):
     sfacets = []
     tmp_sfacets = product['sfacets']
     tmp_sfacets.sort(key=lambda elem: elem['facet']['pk'])
     groups = itertools.groupby(tmp_sfacets, lambda elem: elem['facet'])
+    fulltext_sfacets = []
 
     for facet, values in groups:
         # При удалении параметра is_active у оригинального словаря facet нарушается группировка
         tmp_facet = dict(facet)
         tmp_facet.pop('is_active', None)
         tmp_facet['values'] = [{'pk': value['pk'], 'name': value['name']} for value in values]
+        fulltext_sfacet_values = ' '.join([value['name'] for value in tmp_facet['values']])
+        fulltext_sfacets.append(fulltext_sfacet_values)
         sfacets.append(tmp_facet)
 
     tags = [{'pk': tag['pk'], 'name': tag['name']} for tag in product['tags']]
@@ -446,10 +507,29 @@ def _create_product_body(product):
             'slug': nfacet_model.slug,
             'name': nfacet_model.name,
             'suffix': nfacet_model.suffix,
+            #'position': nfacet_model.extra['order'],
             'value': nfacet['value'],
         })
+    
+    # TODO make completion (suggest) on full string. now working only from beggining of completion
+    completion = ' '.join([
+        product['name'],
+        product['manufacturer']['name'],
+    ])
 
-    body = {
+    tags_str = ' '.join([tag['name'] for tag in tags])
+    sfacets_str = ' '.join(fulltext_sfacets)
+
+    fulltext_russian = ' '.join([
+        product['extra']['name_locale'],
+        product['extra']['style_locale'],
+        tags_str,
+        sfacets_str,
+        product['category']['name'],
+    ])
+    
+    source = {
+        'product_info_pk': product['pk'],
         'name': product['name'],
         'name_slug': product['name_slug'],
         'manufacturer': {
@@ -464,13 +544,18 @@ def _create_product_body(product):
         },
         'description': product['description'],
         'tags': tags,
-        'products': product['instances'],
         'string_facets': sfacets,
         'number_facets': nfacets,
-        'created_at': product['created_at']
+        'created_at': product['created_at'],
+        'name_locale': product['extra']['name_locale'],
+        'style_locale': product['extra']['style_locale'],
+        'completion': completion,
+        'suggest': completion,
+        'fulltext_phonetic': completion,
+        'fulltext_russian': fulltext_russian,
     }
 
-    return body
+    return source
 
 
 # Values in loop is equivalent AND operator and have term in filter query
@@ -504,19 +589,13 @@ def _create_filter_query(params, special_sfacet=None):
         sales = [int(sale) for sale in sales_param.split(',')]
         sale_query = {
             "nested": {
-                "path": "products",
+                "path": "instance.sales",
                 "query": {
-                    "nested": {
-                        "path": "products.sales",
-                        "query": {
-                            "bool": {
-                                "filter": {
-                                    "terms": {"products.sales.pk": sales}
-                                }
-                            }
+                    "bool": {
+                        "filter": {
+                            "terms": {"instance.sales.pk": sales}
                         }
                     }
-
                 }
             }
         }
@@ -526,14 +605,9 @@ def _create_filter_query(params, special_sfacet=None):
     if collection_param is not None:
         collections = [int(collection) for collection in collection_param.split(',')]
         collection_query = {
-            "nested": {
-                "path": "products",
-                "query": {
-                    "bool": {
-                        "filter": {
-                            "terms": {"products.collections": collections}
-                        }
-                    }
+            "bool": {
+                "filter": {
+                    "terms": {"instance.collections": collections}
                 }
             }
         }

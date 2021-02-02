@@ -14,6 +14,7 @@ from apps.authentication.permissions import IsTokenAuthenticated, IsStaff, IsAdm
 from apps.base.pagination import BasePagination
 from .models import (
     ProductInfo,
+    ProductInstance,
     Category,
     Tags,
     Manufacturer,
@@ -28,6 +29,9 @@ from .models import (
 from .serializers import (
     ProductListSerializer,
     ProductTableListSerializer,
+    ProductInstanceTableSerializer,
+    ProductInstanceCreateSerializer,
+    ProductInstanceSerializer,
     ProductRetriveSerializer,
     ProductCreateSerializer,
     ProductImagesSerializer,
@@ -39,7 +43,8 @@ from .serializers import (
     NFacetSerializer,
     CollectionImageSerializer,
     CollectionCreateSerializer,
-    CollectionSerializer
+    CollectionSerializer,
+    AdminProductInfoSerializer,
 )
 
 
@@ -47,32 +52,9 @@ class AdminProductViewSet(viewsets.ModelViewSet):
     authentication_classes = [OAuth2Authentication]
     permission_classes = (IsTokenAuthenticated, IsStaff)
     pagination_class = BasePagination
+    queryset = ProductInfo.objects.all()
+    serializer_class = AdminProductInfoSerializer
 
-    def list(self, request, *args, **kwargs):
-        product_status = request.query_params.get('status', 'active')
-        queryset = ProductInfo.related_objects.filter(status=product_status)
-        search = request.query_params.get('search', None)
-        if search is not None:
-            queryset = queryset.filter(
-                Q(name__icontains=search) |
-                Q(manufacturer__name__icontains=search) |
-                Q(category__name__icontains=search) |
-                Q(instances__sku__icontains=search)
-            )
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = ProductTableListSerializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
-        serializer = ProductTableListSerializer(queryset, many=True)
-        return Response(serializer.data)
-
-    def create(self, request, *args, **kwargs):
-        serializer = ProductCreateSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        instance = serializer.save()
-        if instance.status == 'active':
-            elastic.index_product(instance)
-        return Response(data=serializer.data, status=status.HTTP_201_CREATED)
 
     def retrieve(self, request, pk=None, *args, **kwargs):
         model = get_object_or_404(ProductInfo, pk=pk)
@@ -92,25 +74,89 @@ class AdminProductViewSet(viewsets.ModelViewSet):
 
         return Response(data, status=status.HTTP_200_OK)
 
+    def create(self, request, *args, **kwargs):
+        serializer = ProductCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        product_info = serializer.save()
+        if product_info.is_active:
+            elastic.index_products(product_info)
+        return Response(data=serializer.data, status=status.HTTP_201_CREATED)
+
+
+class AdminProductInfoViewSet(viewsets.ModelViewSet):
+    authentication_classes = [OAuth2Authentication]
+    permission_classes = (IsTokenAuthenticated, IsStaff)
+    queryset = ProductInfo.objects.all()
+    serializer_class = AdminProductInfoSerializer
+
+    def list(self, request, *args, **kwargs):
+        pass
+
     def update(self, request, pk=None, *args, **kwargs):
         instance = get_object_or_404(ProductInfo, pk=pk)
-        serializer = ProductCreateSerializer(instance, data=request.data)
+        serializer = AdminProductInfoSerializer(instance, data=request.data)
         serializer.is_valid(raise_exception=True)
-        product = serializer.save()
+        product_info = serializer.save()
 
-        if product.status == 'active':
-            elastic.index_product(product)
-        else:
-            elastic.delete_product(product)
+        if product_info.is_active:
+            elastic.index_products(product_info)
 
         return Response(serializer.data)
 
-    def partial_update(self, request, pk=None, *args, **kwargs):
-        pass
 
-    def destroy(self, request, pk=None, *args, **kwargs):
-        pass
+class AdminProductInstanceViewSet(viewsets.ModelViewSet):
+    authentication_classes = [OAuth2Authentication]
+    permission_classes = (IsTokenAuthenticated, IsStaff)
+    pagination_class = BasePagination
+    queryset = ProductInstance.objects.all()
+    serializer_class = ProductInstanceCreateSerializer
 
+    def list(self, request, *args, **kwargs):
+        product_status = request.query_params.get('status', ProductInstance.STATUS_ACTIVE)
+        queryset = ProductInstance.objects.filter(status=product_status)
+        search = request.query_params.get('search', None)
+        if search is not None:
+            queryset = queryset.filter(
+                Q(product_info__name__icontains=search) |
+                Q(product_info__manufacturer__name__icontains=search) |
+                Q(product_info__category__name__icontains=search) |
+                Q(sku__icontains=search)
+            )
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = ProductInstanceTableSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = ProductInstanceTableSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    def create(self, request, *args, **kwargs):
+        serializer = ProductInstanceCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        product_instance = serializer.save()
+        if product_instance.status == ProductInstance.STATUS_ACTIVE:
+            product_info = ProductInfo.objects.get(pk=product_instance.product_info)
+            elastic.index_product_instance(product_info=product_info, product_instance=product_instance)
+        return Response(data=serializer.data, status=status.HTTP_201_CREATED)
+
+    def retrieve(self, request, pk=None, *args, **kwargs):
+        model = get_object_or_404(ProductInstance, pk=pk)
+        serializer = ProductInstanceSerializer(model)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def update(self, request, pk=None, *args, **kwargs):
+        instance = get_object_or_404(ProductInstance, pk=pk)
+        serializer = ProductInstanceCreateSerializer(instance, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        product_instance = serializer.save()
+
+        if product_instance.status == ProductInstance.STATUS_ACTIVE:
+            product_info = ProductInfo.objects.get(pk=product_instance.product_info.pk)
+            elastic.index_product_instance(product_info=product_info, product_instance=product_instance)
+        else:
+            elastic.delete_product(product_instance)
+
+        return Response(serializer.data)
 
     @action(methods=['POST'], detail=False)
     def images(self, request):
