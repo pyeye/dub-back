@@ -1216,10 +1216,10 @@ def create_index():
             }
         }
     }
-    es.create(index=INDEX, body=body)
+    es.indices.create(index=INDEX, body=body)
 
 def delete_index():
-    es.delete(index=INDEX)
+    es.indices.delete(index=INDEX)
 
 
 def _format_price(price):
