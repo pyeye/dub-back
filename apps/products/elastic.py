@@ -3,7 +3,7 @@ import json
 import datetime
 from decimal import Decimal
 
-from elasticsearch import Elasticsearch, helpers
+from elasticsearch import Elasticsearch, helpers, exceptions
 
 from .serializers import ProductListSerializer, ProductInstanceSerializer
 from .models import NFacet, ProductInstance
@@ -1219,7 +1219,10 @@ def create_index():
     es.indices.create(index=INDEX, body=body)
 
 def delete_index():
-    es.indices.delete(index=INDEX)
+    try:
+        es.indices.delete(index=INDEX)
+    except exceptions.NotFoundError:
+        pass
 
 
 def _format_price(price):
