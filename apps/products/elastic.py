@@ -1034,142 +1034,90 @@ def delete_nfacet(pk):
 
 def create_index():
     body = {
-    "settings": {
-        "index": {
-        "number_of_shards": 1,
-        "number_of_replicas": 1
-        },
-        "analysis": {
-        "filter": {
-            "my_phonetic_cyrillic": {
-            "type": "phonetic",
-            "encoder": "beider_morse",
-            "rule_type": "approx",
-            "name_type": "generic",
-            "languageset": ["cyrillic"]
+        "settings": {
+            "index": {
+            "number_of_shards": 1,
+            "number_of_replicas": 1
             },
-            "my_phonetic_english": {
-            "type": "phonetic",
-            "encoder": "beider_morse",
-            "rule_type": "approx",
-            "name_type": "generic",
-            "languageset": ["english"]
+            "analysis": {
+            "filter": {
+                "my_phonetic_cyrillic": {
+                "type": "phonetic",
+                "encoder": "beider_morse",
+                "rule_type": "approx",
+                "name_type": "generic",
+                "languageset": ["cyrillic"]
+                },
+                "my_phonetic_english": {
+                "type": "phonetic",
+                "encoder": "beider_morse",
+                "rule_type": "approx",
+                "name_type": "generic",
+                "languageset": ["english"]
+                },
+                "russian_stop": {
+                "type": "stop",
+                "stopwords": "_russian_"
+                },
+                "dubbel_edge_ngram": {
+                "type": "edgeNGram",
+                "min_gram": "3",
+                "max_gram": "10"
+                },
+                "russian_hunspell": {
+                "type": "hunspell",
+                "locale": "ru_RU"
+                }
             },
-            "russian_stop": {
-            "type": "stop",
-            "stopwords": "_russian_"
-            },
-            "dubbel_edge_ngram": {
-            "type": "edgeNGram",
-            "min_gram": "3",
-            "max_gram": "10"
-            },
-            "russian_hunspell": {
-            "type": "hunspell",
-            "locale": "ru_RU"
-            }
-        },
-        "analyzer": {
-            "dubbel_phonetic": {
-            "tokenizer": "standard",
-            "filter": ["lowercase", "my_phonetic_english", "my_phonetic_cyrillic"]
-            },
-            "dubbel_hunspell": {
-            "tokenizer": "standard",
-            "filter": ["lowercase", "russian_stop", "russian_hunspell"]
-            },
-            "dubbel_edge": {
-            "tokenizer": "standard",
-            "filter": ["lowercase", "russian_stop", "dubbel_edge_ngram"]
-            }
-        }
-        }
-    },
-    "mappings": {
-        "properties": {
-            "name": {
-            "type": "keyword"
-            },
-            "name_slug": {
-            "type": "keyword"
-            },
-            "manufacturer": {
-            "type": "object",
-            "properties": {
-                "pk": { "type": "integer" },
-                "slug": { "type": "keyword" },
-                "name": { 
-                "type": "keyword"
+            "analyzer": {
+                "dubbel_phonetic": {
+                "tokenizer": "standard",
+                "filter": ["lowercase", "my_phonetic_english", "my_phonetic_cyrillic"]
+                },
+                "dubbel_hunspell": {
+                "tokenizer": "standard",
+                "filter": ["lowercase", "russian_stop", "russian_hunspell"]
+                },
+                "dubbel_edge": {
+                "tokenizer": "standard",
+                "filter": ["lowercase", "russian_stop", "dubbel_edge_ngram"]
                 }
             }
-            },
-            "category": {
-            "type": "object",
-            "properties": {
-                "pk": { "type": "integer" },
-                "slug": { "type": "keyword" },
-                "name": {
-                "type": "keyword"
-                }
             }
-            },
-            "description": {
-            "type": "text",
-            "index": false
-            },
-            "tags": { 
-            "type": "nested",
+        },
+        "mappings": {
             "properties": {
                 "name": {
                 "type": "keyword"
                 },
-                "pk": { "type": "integer" }
-            }
-            },
-            "count_instances" : {
-            "type": "keyword"
-            },
-            "instance": {
-            "type": "object",
-            "properties": {
-                "pk": { "type": "integer" },
-                "sku": { "type": "integer" },
-                "measure": { "type": "integer" },
-                "base_price": { "type": "scaled_float", "scaling_factor": 100 },
-                "price": { "type": "scaled_float", "scaling_factor": 100 },
-                "stock_balance": { "type": "integer" },
-                "package_amount": { "type": "short" },
-                "capacity_type": { "type": "keyword" },
-                "images": {
-                "type": "nested",
-                "properties": {
-                    "is_main": { "type": "boolean", "index": false },
-                    "src": { "type": "keyword", "index": false }
-                }
+                "name_slug": {
+                "type": "keyword"
                 },
-                "collections": { "type": "integer" },
-                "sales": { 
-                "type": "nested",
+                "manufacturer": {
+                "type": "object",
                 "properties": {
                     "pk": { "type": "integer" },
-                    "name": { "type": "keyword" },
-                    "date_start" : { "type": "date" },
-                    "date_end" : { "type": "date" },
-                    "type": { "type": "keyword" },
-                    "percent": { "type": "scaled_float", "scaling_factor": 100 },
-                    "fixed": { "type": "scaled_float", "scaling_factor": 100 },
-                    "condition": { "type": "keyword" }
+                    "slug": { "type": "keyword" },
+                    "name": { 
+                    "type": "keyword"
+                    }
                 }
+                },
+                "category": {
+                "type": "object",
+                "properties": {
+                    "pk": { "type": "integer" },
+                    "slug": { "type": "keyword" },
+                    "name": {
+                    "type": "keyword"
+                    }
                 }
-            }
-            },
-            "string_facets": {
-            "type": "nested",
-            "properties": {
-                "slug": { "type": "keyword" },
-                "name": { "type": "keyword" },
-                "pk": { "type": "integer" },
-                "values": {
+                },
+                "description": {
+                "type": "text",
+                "index": false
+                },
+                "tags": { 
                 "type": "nested",
                 "properties": {
                     "name": {
@@ -1177,46 +1125,98 @@ def create_index():
                     },
                     "pk": { "type": "integer" }
                 }
+                },
+                "count_instances" : {
+                "type": "keyword"
+                },
+                "instance": {
+                "type": "object",
+                "properties": {
+                    "pk": { "type": "integer" },
+                    "sku": { "type": "integer" },
+                    "measure": { "type": "integer" },
+                    "base_price": { "type": "scaled_float", "scaling_factor": 100 },
+                    "price": { "type": "scaled_float", "scaling_factor": 100 },
+                    "stock_balance": { "type": "integer" },
+                    "package_amount": { "type": "short" },
+                    "capacity_type": { "type": "keyword" },
+                    "images": {
+                    "type": "nested",
+                    "properties": {
+                        "is_main": { "type": "boolean", "index": false },
+                        "src": { "type": "keyword", "index": false }
+                    }
+                    },
+                    "collections": { "type": "integer" },
+                    "sales": { 
+                    "type": "nested",
+                    "properties": {
+                        "pk": { "type": "integer" },
+                        "name": { "type": "keyword" },
+                        "date_start" : { "type": "date" },
+                        "date_end" : { "type": "date" },
+                        "type": { "type": "keyword" },
+                        "percent": { "type": "scaled_float", "scaling_factor": 100 },
+                        "fixed": { "type": "scaled_float", "scaling_factor": 100 },
+                        "condition": { "type": "keyword" }
+                    }
+                    }
                 }
-            }
-            },
-            "number_facets": {
-            "type": "nested",
-            "properties": {
-                "pk": { "type": "integer" },
-                "slug": { "type": "keyword" },
-                "name": { "type": "keyword" },
-                "value": { "type": "scaled_float", "scaling_factor": 1000 },
-                "suffix": { "type": "keyword" }
-            }
-            },
-            "created_at": {
-            "type": "date"
-            },
-            "completion": {
-            "type": "completion"
-            },
-            "suggest": {
-            "type": "text"
-            },
-            "fulltext_phonetic": {
-            "type": "text",
-            "analyzer": "dubbel_phonetic"
-            },
-            "fulltext_russian": {
-            "type": "text",
-            "analyzer": "dubbel_hunspell",
-            "fields": {
-                "edge": {
+                },
+                "string_facets": {
+                "type": "nested",
+                "properties": {
+                    "slug": { "type": "keyword" },
+                    "name": { "type": "keyword" },
+                    "pk": { "type": "integer" },
+                    "values": {
+                    "type": "nested",
+                    "properties": {
+                        "name": {
+                        "type": "keyword"
+                        },
+                        "pk": { "type": "integer" }
+                    }
+                    }
+                }
+                },
+                "number_facets": {
+                "type": "nested",
+                "properties": {
+                    "pk": { "type": "integer" },
+                    "slug": { "type": "keyword" },
+                    "name": { "type": "keyword" },
+                    "value": { "type": "scaled_float", "scaling_factor": 1000 },
+                    "suffix": { "type": "keyword" }
+                }
+                },
+                "created_at": {
+                "type": "date"
+                },
+                "completion": {
+                "type": "completion"
+                },
+                "suggest": {
+                "type": "text"
+                },
+                "fulltext_phonetic": {
                 "type": "text",
-                "analyzer": "dubbel_edge"
+                "analyzer": "dubbel_phonetic"
+                },
+                "fulltext_russian": {
+                "type": "text",
+                "analyzer": "dubbel_hunspell",
+                "fields": {
+                    "edge": {
+                    "type": "text",
+                    "analyzer": "dubbel_edge"
+                    }
                 }
-            }
+                }
             }
         }
     }
     es.create(index=INDEX, body=body)
-}
 
 def delete_index():
     es.delete(index=INDEX)
