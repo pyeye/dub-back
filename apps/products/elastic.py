@@ -1115,7 +1115,7 @@ def create_index():
                 },
                 "description": {
                 "type": "text",
-                "index": false
+                "index": False
                 },
                 "tags": { 
                 "type": "nested",
