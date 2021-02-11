@@ -1143,8 +1143,8 @@ def create_index():
                     "images": {
                     "type": "nested",
                     "properties": {
-                        "is_main": { "type": "boolean", "index": false },
-                        "src": { "type": "keyword", "index": false }
+                        "is_main": { "type": "boolean", "index": False },
+                        "src": { "type": "keyword", "index": False }
                     }
                     },
                     "collections": { "type": "integer" },
