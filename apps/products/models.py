@@ -215,6 +215,11 @@ class Collection(models.Model):
         self.slug = slugify(self.name, only_ascii=True)
         super(Collection, self).save(*args, **kwargs)
 
+    def add_collection_to_instances(self, *args, **kwargs):
+        for product in self.products.all():
+            product.collections.append(self.pk)
+            product.save()
+
 
 class CollectionImage(models.Model):
     src = models.ImageField(upload_to=upload_collection_location, null=True, blank=True)

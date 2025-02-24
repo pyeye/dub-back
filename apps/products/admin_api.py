@@ -642,6 +642,7 @@ class AdminCollectionViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         instance = serializer.save()
         elastic.add_collection(instance)
+        instance.add_collection_to_instances()
         return Response(data=serializer.data, status=status.HTTP_201_CREATED)
 
     def retrieve(self, request, pk=None, *args, **kwargs):
@@ -655,6 +656,7 @@ class AdminCollectionViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         instance = serializer.save()
         elastic.update_collection(instance)
+        #instance.add_collection_to_instances()
 
         return Response(serializer.data)
 
