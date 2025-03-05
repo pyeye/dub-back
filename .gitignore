@@ -127,3 +127,7 @@ dmypy.json
 # IDE
 .idea/
 .vscode/
+
+# dev config
+/core/settings/dev.py
+/core/settings/tests.py
