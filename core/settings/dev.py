@@ -45,3 +45,15 @@ def show_toolbar(request):
 DEBUG_TOOLBAR_CONFIG = {
     "SHOW_TOOLBAR_CALLBACK": show_toolbar,
 }
+
+ELASTIC_SEARCH = {
+    'INDEX': 'products_dev',
+    'PAGE_SIZE': 24,
+    'CONFIG': {
+        'host': 'elastic',
+        'port': 9200,
+        'http_auth': ('elastic', 'secret')
+    },
+}
+
+

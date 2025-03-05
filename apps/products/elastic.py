@@ -4,22 +4,13 @@ import datetime
 from decimal import Decimal
 
 from elasticsearch import Elasticsearch, helpers, exceptions
+from django.conf import settings
 
 from .serializers import ProductListSerializer, ProductInstanceSerializer
 from .models import NFacet, ProductInstance
 
 
-#TODO secret config
-INDEX = 'products_dev'
-CONFIG = {
-    'host': 'elastic',
-    'port': 9200,
-    'http_auth': ('elastic', 'secret')
-}
-
-PAGE_SIZE = 24
-
-es = Elasticsearch([CONFIG])
+es = Elasticsearch([settings.ELASTIC_SEARCH['CONFIG']])
 
 
 def index_products(product_model):
@@ -38,7 +29,7 @@ def index_products(product_model):
             'instance': product_instance,
         }
         actions.append({
-            '_index': INDEX,
+            '_index': settings.ELASTIC_SEARCH['INDEX'],
             '_id': product_instance['pk'],
             '_type': '_doc',
             '_op_type': 'create',
@@ -51,7 +42,7 @@ def index_products(product_model):
 
 def index_product_instance(product_info, product_instance):
     if product_instance.status != ProductInstance.STATUS_ACTIVE:
-        es.delete(index=INDEX, doc_type='_doc', id=product_instance.pk)
+        es.delete(index=settings.ELASTIC_SEARCH['INDEX'], doc_type='_doc', id=product_instance.pk)
         return
     info_serializer = ProductListSerializer(product_info)
     info_data = json.loads(json.dumps(info_serializer.data))
@@ -64,11 +55,11 @@ def index_product_instance(product_info, product_instance):
         **product_info_source,
         'instance': instance_data,
     }
-    es.index(index=INDEX, body=source, doc_type='_doc', id=instance_data['pk'])
+    es.index(index=settings.ELASTIC_SEARCH['INDEX'], body=source, doc_type='_doc', id=instance_data['pk'])
 
 
 def delete_product(product_model):
-    es.delete(index=INDEX, doc_type='_doc', id=product_model.id)
+    es.delete(index=settings.ELASTIC_SEARCH['INDEX'], doc_type='_doc', id=product_model.id)
 
 
 def get_products(params):
@@ -92,7 +83,7 @@ def add_collection(collection_model):
             }
         }
     }
-    es.update_by_query(index=INDEX, body=body, conflicts='proceed')
+    es.update_by_query(index=settings.ELASTIC_SEARCH['INDEX'], body=body, conflicts='proceed')
 
 
 def remove_collection(collection_model):
@@ -113,7 +104,7 @@ def remove_collection(collection_model):
             }
         }
     }
-    es.update_by_query(index=INDEX, body=body)
+    es.update_by_query(index=settings.ELASTIC_SEARCH['INDEX'], body=body)
 
 
 def update_collection(collection_model):
@@ -132,7 +123,7 @@ def _elastic_get_products(params, excludes):
         sort_query = {sort_name: sort_type}
 
     page = int(params.get('page', 1))
-    page_from = 0 if page == 1 else PAGE_SIZE * (page - 1)
+    page_from = 0 if page == 1 else settings.ELASTIC_SEARCH['PAGE_SIZE'] * (page - 1)
 
     query = {
         '_source': {
@@ -145,10 +136,10 @@ def _elastic_get_products(params, excludes):
         },
         'sort': sort_query,
         'from': page_from,
-        'size': PAGE_SIZE,
+        'size': settings.ELASTIC_SEARCH['PAGE_SIZE'],
     }
 
-    products = es.search(index=INDEX, body=query)
+    products = es.search(index=settings.ELASTIC_SEARCH['INDEX'], body=query)
 
     total_products = products['hits']['total']['value']
 
@@ -164,7 +155,7 @@ def _elastic_get_products(params, excludes):
 
 
 def get_product(pk):
-    product = es.get(index=INDEX, doc_type='_doc', id=pk)
+    product = es.get(index=settings.ELASTIC_SEARCH['INDEX'], doc_type='_doc', id=pk)
     source = _format_product(product['_source'])
     source['pk'] = product['_id']
     return source
@@ -214,7 +205,7 @@ def get_tags(params):
             }
         }
     }
-    tags = es.search(index=INDEX, body=query)
+    tags = es.search(index=settings.ELASTIC_SEARCH['INDEX'], body=query)
     formatted_tags = []
     for tag in tags['aggregations']['category_tags']['nested_tags']['tags']['buckets']:
         formatted_tags.append(tag['tags_src']['hits']['hits'][0]['_source'])
@@ -284,7 +275,7 @@ def get_categories():
             }
         }
     }
-    elastic_categories = es.search(index=INDEX, body=query)
+    elastic_categories = es.search(index=settings.ELASTIC_SEARCH['INDEX'], body=query)
     categories = []
     for category in elastic_categories['aggregations']['category']['buckets']:
         source = {
@@ -426,7 +417,7 @@ def get_facets(params):
             }
         }
     }
-    all_facets = es.search(index=INDEX, body=query)
+    all_facets = es.search(index=settings.ELASTIC_SEARCH['INDEX'], body=query)
 
     string_facets = []
     for string_facet_aggs in all_facets['aggregations']['facets_filter']['string_facets']['facets_code']['buckets']:
@@ -759,12 +750,12 @@ def update_category(category):
             }
         }
     }
-    es.update_by_query(index=INDEX, body=body)
+    es.update_by_query(index=settings.ELASTIC_SEARCH['INDEX'], body=body)
 
 
 def delete_category(category):
     body = {"query": {"term": {"category.pk": category['pk']}}}
-    es.delete_by_query(index=INDEX, body=body)
+    es.delete_by_query(index=settings.ELASTIC_SEARCH['INDEX'], body=body)
 
 
 def update_manufacturer(manufacturer):
@@ -778,12 +769,12 @@ def update_manufacturer(manufacturer):
             }
         }
     }
-    es.update_by_query(index=INDEX, body=body)
+    es.update_by_query(index=settings.ELASTIC_SEARCH['INDEX'], body=body)
 
 
 def delete_manufacturer(manufacturer):
     body = {"query": {"term": {"manufacturer.pk": manufacturer['pk']}}}
-    es.delete_by_query(index=INDEX, body=body)
+    es.delete_by_query(index=settings.ELASTIC_SEARCH['INDEX'], body=body)
 
 
 def update_tag(tag):
@@ -810,7 +801,7 @@ def update_tag(tag):
         }
       }
     }
-    es.update_by_query(index=INDEX, body=body)
+    es.update_by_query(index=settings.ELASTIC_SEARCH['INDEX'], body=body)
 
 
 def delete_tag(tag):
@@ -833,7 +824,7 @@ def delete_tag(tag):
         }
       }
     }
-    es.update_by_query(index=INDEX, body=body)
+    es.update_by_query(index=settings.ELASTIC_SEARCH['INDEX'], body=body)
 
 
 def update_sfacet(string_facet):
@@ -861,7 +852,7 @@ def update_sfacet(string_facet):
         }
       }
     }
-    es.update_by_query(index=INDEX, body=body)
+    es.update_by_query(index=settings.ELASTIC_SEARCH['INDEX'], body=body)
 
 
 def delete_sfacet(pk):
@@ -888,7 +879,7 @@ def delete_sfacet(pk):
             }
         }
     }
-    es.update_by_query(index=INDEX, body=body)
+    es.update_by_query(index=settings.ELASTIC_SEARCH['INDEX'], body=body)
 
 
 def update_sfacet_value(value):
@@ -931,7 +922,7 @@ def update_sfacet_value(value):
             }
         }
     }
-    es.update_by_query(index=INDEX, body=body)
+    es.update_by_query(index=settings.ELASTIC_SEARCH['INDEX'], body=body)
 
 
 def delete_sfacet_value(value):
@@ -974,7 +965,7 @@ def delete_sfacet_value(value):
             }
         }
     }
-    es.update_by_query(index=INDEX, body=body)
+    es.update_by_query(index=settings.ELASTIC_SEARCH['INDEX'], body=body)
 
 
 def update_nfacet(facet):
@@ -1002,7 +993,7 @@ def update_nfacet(facet):
         }
       }
     }
-    es.update_by_query(index=INDEX, body=body)
+    es.update_by_query(index=settings.ELASTIC_SEARCH['INDEX'], body=body)
 
 
 def delete_nfacet(pk):
@@ -1029,7 +1020,7 @@ def delete_nfacet(pk):
             }
         }
     }
-    es.update_by_query(index=INDEX, body=body)
+    es.update_by_query(index=settings.ELASTIC_SEARCH['INDEX'], body=body)
 
 
 def create_index():
@@ -1216,11 +1207,11 @@ def create_index():
             }
         }
     }
-    es.indices.create(index=INDEX, body=body)
+    es.indices.create(index=settings.ELASTIC_SEARCH['INDEX'], body=body)
 
 def delete_index():
     try:
-        es.indices.delete(index=INDEX)
+        es.indices.delete(index=settings.ELASTIC_SEARCH['INDEX'])
     except exceptions.NotFoundError:
         pass
 
