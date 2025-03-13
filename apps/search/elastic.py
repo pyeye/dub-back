@@ -1,15 +1,8 @@
 from elasticsearch import Elasticsearch
+from django.conf import settings
 
-INDEX = 'products_dev'
-CONFIG = {
-    'host': 'elastic',
-    'port': 9200,
-    'http_auth': ('elastic', 'secret')
-}
 
-PAGE_SIZE = 24
-
-es = Elasticsearch([CONFIG])
+es = Elasticsearch([settings.ELASTIC_SEARCH["CONFIG"]])
 
 
 def search_products(params):
@@ -23,7 +16,7 @@ def search_products(params):
         sort_query = {sort_name: sort_type}
 
     page = int(params.get('page', 1))
-    page_from = 0 if page == 1 else PAGE_SIZE * (page - 1)
+    page_from = 0 if page == 1 else settings.ELASTIC_SEARCH["PAGE_SIZE"] * (page - 1)
 
     query = {
         '_source': {
@@ -34,10 +27,10 @@ def search_products(params):
         },
         'sort': sort_query,
         'from': page_from,
-        'size': PAGE_SIZE,
+        'size': settings.ELASTIC_SEARCH["PAGE_SIZE"],
     }
 
-    products = es.search(index=INDEX, body=query)
+    products = es.search(index=settings.ELASTIC_SEARCH["INDEX"], body=query)
 
     total_products = products['hits']['total']['value']
 
@@ -66,7 +59,7 @@ def complete_products(params):
         }
     }
 
-    completions = es.search(index=INDEX, body=query)
+    completions = es.search(index=settings.ELASTIC_SEARCH["INDEX"], body=query)
 
     formatted_completions = []
     for completion in completions['suggest']['search-suggest'][0]['options']:
