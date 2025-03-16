@@ -154,11 +154,39 @@ def _elastic_get_products(params, excludes):
     }
 
 
-def get_product(pk):
-    product = es.get(index=settings.ELASTIC_SEARCH['INDEX'], doc_type='_doc', id=pk)
-    source = _format_product(product['_source'])
-    source['pk'] = product['_id']
-    return source
+def get_product_info(pk):
+    query = {
+        '_source': {
+            'excludes': ['suggest', 'completion', 'fulltext_russian', 'fulltext_phonetic']
+        },
+        'query': {
+            "term": {"product_info_pk": str(pk)},
+        },
+    }
+
+    products = es.search(index=settings.ELASTIC_SEARCH['INDEX'], body=query)
+    hits = products['hits']['hits']
+
+    if not hits:
+        return None
+
+    product_info = hits[0]['_source']
+    instances = [p['_source']['instance'] for p in hits]
+    product_info['instances'] = instances
+    product_info.pop('instance', None)
+
+    return product_info
+
+
+def get_product_instance(pk):
+    try:
+        product = es.get(index=settings.ELASTIC_SEARCH['INDEX'], doc_type='_doc', id=pk)
+    except exceptions.NotFoundError:
+        return None
+    excludes = ['suggest', 'completion', 'fulltext_russian', 'fulltext_phonetic']
+    for exclude_field in excludes:
+        product['_source'].pop(exclude_field, None)
+    return product['_source']
 
 
 def _format_product(product):
