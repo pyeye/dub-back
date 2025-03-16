@@ -20,7 +20,7 @@ from rest_framework import routers
 from apps.authentication.views import CreateGuestView, JWTUserView, SecretView
 from apps.users.views import CustomerAPIView, PasswordAPIView, CartSessionAPIView, WatchedSessionAPIView
 from apps.news.views import NewsViewSet
-from apps.products.views import CategoryAPIView, TagsListAPI, FacetsListAPI, ProductListAPI, ProductDetailAPI, ProductDetailInstancesAPI, FacetAllValuesListAPI, CollectionDetailAPIView
+from apps.products.views import CategoryAPIView, TagsListAPI, FacetsListAPI, ProductViewSet, FacetAllValuesListAPI, CollectionDetailAPIView
 from apps.home.views import HomeCollectionAPI, HomeSalesAPI, HomeNewsApiView, NewProductsListAPI
 from apps.search.views import SearchListAPI, CompletionListAPI
 from apps.sales.views import SalesViewSet
@@ -43,6 +43,7 @@ from apps.sales.admin import AdminSaleViewSet, AdminSalesImageViewSet
 from apps.home.admin import AdminHomeSaleViewSet, AdminHomeCollectionViewSet
 
 router = routers.SimpleRouter()
+router.register(r'products', ProductViewSet, basename='api-products')
 router.register(r'news', NewsViewSet, basename='api-news')
 router.register(r'sales', SalesViewSet, basename='api-sales')
 
@@ -69,9 +70,6 @@ admin_router.register(r'home-collections', AdminHomeCollectionViewSet, basename=
 urlpatterns = [
     url(r'^admin/', include(admin_router.urls)),
     url(r'^v1/', include(router.urls)),
-    url(r'^v1/products/(?P<pk>\d+)/$', ProductDetailAPI.as_view(), name="products-detail"),
-    url(r'^v1/products/', ProductListAPI.as_view(), name="products-list"),
-    url(r'^v1/product-instances/(?P<pk>\d+)/$', ProductDetailInstancesAPI.as_view(), name="products-detail-instances"),
     url(r'^v1/collections/(?P<pk>\d+)/$', CollectionDetailAPIView.as_view(), name="collection-detail"),
     url(r'^v1/search/', SearchListAPI.as_view(), name="products-search"),
     url(r'^v1/completions/', CompletionListAPI.as_view(), name="products-complete"),
