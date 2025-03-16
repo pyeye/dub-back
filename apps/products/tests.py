@@ -192,6 +192,17 @@ class ProductAPITestCase(TestCase):
             status=ProductInstance.STATUS_ACTIVE,
         )
 
+        ProductInstance.objects.create(
+            sku=8974385,
+            product_info=product_info2,
+            measure=5000,
+            price=1550.00,
+            base_price=1550.00,
+            stock_balance=50,
+            package_amount=1,
+            status=ProductInstance.STATUS_ACTIVE,
+        )
+
         for product in ProductInfo.objects.all():
             index_products(product)
 
@@ -209,15 +220,43 @@ class ProductAPITestCase(TestCase):
         data = response.json()
         self.assertIn("items", data)
         self.assertIn("total", data)
-        self.assertEqual(len(data["items"]), 2)
-        self.assertEqual(data["total"], 2)
-        # print(data)
+        self.assertEqual(len(data["items"]), 3)
+        self.assertEqual(data["total"], 3)
+
+    def test_detail_info(self):
+        response = self.client.get("/v1/products/1/")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["name"], "Abbaye Des Rocs Grand Cru")
+
+    def test_detail_multiple_instances(self):
+        response = self.client.get("/v1/products/2/")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("count_instances", data)
+        self.assertIn("instances", data)
+        self.assertEqual(data["count_instances"], 2)
+        self.assertEqual(len(data["instances"]), 2)
+
+    def test_detail_info_404(self):
+        response = self.client.get("/v1/products/3/")
+        self.assertEqual(response.status_code, 404)
+
+    def test_detail_instance(self):
+        response = self.client.get("/v1/products/instances/1/")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["instance"]["pk"], 1)
+
+    def test_detail_instance_404(self):
+        response = self.client.get("/v1/products/instances/5/")
+        self.assertEqual(response.status_code, 404)
 
     def test_filter_nfacets(self):
         response = self.client.get("/v1/products/?nfacets[]=density:20-21")
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data["total"], 1)
+        self.assertEqual(data["total"], 2)
         for product in data["items"]:
             density_values = [
                 float(facet["value"])
@@ -250,14 +289,14 @@ class ProductAPITestCase(TestCase):
         response = self.client.get("/v1/products/?sfacets[]=country:15,16")
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data["total"], 2)
+        self.assertEqual(data["total"], 3)
 
     def test_filter_multiple_sfacets(self):
         response = self.client.get(
             "/v1/products/?sfacets[]=style:1&sfacets[]=taste:9,10&nfacets[]=density:20-22"
         )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["total"], 2)
+        self.assertEqual(response.data["total"], 3)
 
     def test_base_facet(self):
         response = self.client.get("/v1/facets/")
@@ -272,14 +311,14 @@ class ProductAPITestCase(TestCase):
             if facet["slug"] == "style"
         ][0]
         self.assertEqual(len(style_values), 1)
-        self.assertEqual(style_values[0]["count"], 2)
+        self.assertEqual(style_values[0]["count"], 3)
         country_values = [
             facet["values"]
             for facet in response.data["sfacets"]
             if facet["slug"] == "country"
         ][0]
         self.assertEqual(len(country_values), 2)
-        self.assertEqual(country_values[0]["count"], 1)
+        self.assertEqual(country_values[0]["count"], 2)
         self.assertEqual(country_values[1]["count"], 1)
 
     def test_facet_special(self):
