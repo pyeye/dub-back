@@ -326,49 +326,6 @@ class AdminProductInfoSerializer(serializers.ModelSerializer):
         return product
 
 
-class ProductInfoPublicSerializer(serializers.ModelSerializer):
-    category = CategorySerializer(read_only=True)
-    manufacturer = ManufacturerSerializer(read_only=True)
-    tags = TagsSerializer(many=True, read_only=True)
-    instances = serializers.SerializerMethodField()
-    facets = serializers.SerializerMethodField()
-
-    class Meta:
-        model = ProductInfo
-        fields = (
-            "pk",
-            "name",
-            "name_slug",
-            "manufacturer",
-            "description",
-            "instances",
-            "category",
-            "tags",
-            "facets",
-            "created_at",
-            "extra",
-        )
-
-    def get_instances(self, obj):
-        instances_obj = obj.instances.filter(status=ProductInstance.STATUS_ACTIVE)
-        serializer = ProductInstanceSerializer(instances_obj, many=True)
-        return serializer.data
-
-    def get_facets(self, obj):
-        from . import elastic
-
-        elastic_product = elastic.get_product(pk=obj.instances.first().pk)
-        tmp_sfacets = [
-            {"type": "string", **sfacet} for sfacet in elastic_product["string_facets"]
-        ]
-        tmp_nfacets = [
-            {"type": "number", **nfacet} for nfacet in elastic_product["number_facets"]
-        ]
-        facets = tmp_nfacets + tmp_sfacets
-        facets.sort(key=lambda elem: elem["name"])
-        return facets
-
-
 class ProductListSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
     manufacturer = ManufacturerSerializer(read_only=True)
