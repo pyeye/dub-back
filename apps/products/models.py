@@ -93,7 +93,7 @@ class ProductInstance(models.Model):
 
     @property
     def is_active(self):
-        return self.status == STATUS_ACTIVE
+        return self.status == self.STATUS_ACTIVE
 
     class Meta:
         verbose_name = 'Товар'

@@ -5,15 +5,12 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from django.shortcuts import get_object_or_404
 
-from .serializers import (
-    CollectionApiSerializer,
-)
+from .serializers import CollectionApiSerializer
 from .models import Collection
 from . import elastic
 
 
 class ProductViewSet(ViewSet):
-
     def list(self, request):
         params = request.query_params
         products = elastic.get_products(params)
@@ -43,16 +40,14 @@ class TagsListAPI(APIView):
 class FacetsListAPI(APIView):
     def get(self, request, format=None):
         params = self.request.query_params
-        (
-            sfacets,
-            nfacets,
-        ) = elastic.get_facets(params)
-        return Response(
-            {"sfacets": sfacets, "nfacets": nfacets}, status=status.HTTP_200_OK
-        )
+        sfacets, nfacets = elastic.get_facets(params)
+        response_data = {"sfacets": sfacets, "nfacets": nfacets}
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
 class FacetAllValuesListAPI(APIView):
+    """Default size of values on each string facet is equal 10
+    this view load all rest values for specific string facet"""
     def get(self, request, format=None):
         params = self.request.query_params
         values = elastic.get_all_special_agg_values(params)
@@ -69,8 +64,7 @@ class CollectionDetailAPIView(APIView):
     def get(self, request, pk, format=None):
         instance = get_object_or_404(Collection, pk=pk)
         if not instance.is_active or not instance.is_public:
-            return Response(
-                data="Нет доступа к коллекции", status=status.HTTP_400_BAD_REQUEST
-            )
+            msg = "Нет доступа к коллекции"
+            return Response(data=msg, status=status.HTTP_400_BAD_REQUEST)
         serializer = CollectionApiSerializer(instance)
         return Response(data=serializer.data, status=status.HTTP_200_OK)

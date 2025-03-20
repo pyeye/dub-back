@@ -23,12 +23,6 @@ class CategorySerializer(serializers.ModelSerializer):
 
 
 class NFacetSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = NFacet
-        fields = ("pk", "name", "slug", "suffix", "is_active")
-
-
-class NFacetListSerializer(serializers.ModelSerializer):
     position = serializers.SerializerMethodField()
 
     class Meta:
@@ -36,19 +30,7 @@ class NFacetListSerializer(serializers.ModelSerializer):
         fields = ("pk", "name", "slug", "suffix", "is_active", "position")
 
     def get_position(self, obj):
-        try:
-            order = obj.extra["order"]
-        except KeyError as e:
-            order = 1
-        return order
-
-
-class NFacetValueListSerializer(serializers.ModelSerializer):
-    facet = NFacetListSerializer(read_only=True)
-
-    class Meta:
-        model = NFacetValue
-        fields = ("pk", "facet", "value")
+        return obj.extra.get("order", 1)
 
 
 class SFacetValueRelatedSerializer(serializers.ModelSerializer):
@@ -65,11 +47,7 @@ class SFacetListSerializer(serializers.ModelSerializer):
         fields = ("pk", "name", "slug", "is_active", "position")
 
     def get_position(self, obj):
-        try:
-            order = obj.extra["order"]
-        except KeyError as e:
-            order = 1
-        return order
+        return obj.extra.get("order", 1)
 
 
 class SFacetValueListSerializer(serializers.ModelSerializer):
@@ -183,13 +161,10 @@ class ProductInstanceCreateSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         images = validated_data.pop("images")
-        instance.sku = validated_data.pop("sku")
-        instance.measure = validated_data.pop("measure")
-        instance.capacity_type = validated_data.pop("capacity_type")
-        instance.base_price = validated_data.pop("base_price")
-        instance.status = validated_data.pop("status")
-        instance.package_amount = validated_data.pop("package_amount")
-        instance.stock_balance = validated_data.pop("stock_balance")
+
+        # Пересечение ключей validated_data и разрешённых полей
+        for attr in validated_data.keys() & set(self.Meta.fields):
+            setattr(instance, attr, validated_data[attr])
         instance.save()
 
         for image in images:
@@ -259,11 +234,9 @@ class ProductCreateSerializer(serializers.ModelSerializer):
         return product_info
 
     def update(self, product, validated_data):
-        product.name = validated_data.pop("name")
-        product.category = validated_data.pop("category")
-        product.status = validated_data.pop("status")
-        product.manufacturer = validated_data.pop("manufacturer")
-        product.description = validated_data.pop("description")
+        fields = {"name", "category", "status", "manufacturer", "description"}
+        for attr in validated_data.keys() & fields:
+            setattr(product, attr, validated_data[attr])
         product.save()
 
         nfacets = validated_data.pop("nfacets", [])
