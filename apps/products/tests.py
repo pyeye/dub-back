@@ -3,13 +3,16 @@ import time
 from django.test import TestCase
 from rest_framework.test import APIClient
 from django.conf import settings
+from django.http import QueryDict
 
 from .elastic import es, create_index, index_products
+from .serializers import ProductCreateSerializer
 from .models import (
     ProductInfo,
     Manufacturer,
     Category,
     ProductInstance,
+    ProductImage,
     SFacet,
     SFacetValue,
     NFacet,
@@ -298,6 +301,16 @@ class ProductAPITestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["total"], 3)
 
+    def test_all_values_sfacet(self):
+        response = self.client.get("/v1/facet/full/?facet=country")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 2)
+        self.assertEqual({'германия', 'бельгия'}, {item["name"] for item in response.data})
+
+    def test_all_values_sfacet_empty(self):
+        response = self.client.get("/v1/facet/full/")
+        self.assertEqual(response.status_code, 400)
+
     def test_base_facet(self):
         response = self.client.get("/v1/facets/")
         self.assertEqual(response.status_code, 200)
@@ -343,3 +356,44 @@ class ProductAPITestCase(TestCase):
             if facet["slug"] == "country"
         ][0]
         self.assertEqual(len(country_values), 1)
+
+    def test_product_create(self):
+        products = ProductInfo.objects.all()
+        product_instances = ProductInstance.objects.all()
+        self.assertEqual(len(products), 2)
+        self.assertEqual(len(product_instances), 3)
+        image = ProductImage.objects.create(
+            is_main = True,
+            src = 'image.png',
+        )
+        data = {
+            "name": "test",
+            "description": "description",
+            "category": 1,
+            "manufacturer": 1,
+            "tags": [],
+            "nfacets": [1],
+            "sfacets": [1, 2],
+            "instances": [],
+        }
+        product = ProductCreateSerializer(data=data)
+        self.assertFalse(product.is_valid())
+        data["instances"] = [
+            {
+                "sku": 999999,
+                "measure": 25,
+                "base_price": 200,
+                "status": "active",
+                "stock_balance": 2,
+                "package_amount": 5,
+                "images": [image.pk],
+            }
+        ]
+        product = ProductCreateSerializer(data=data)
+        self.assertTrue(product.is_valid())
+        product.save()
+        products = ProductInfo.objects.all()
+        product_instances = ProductInstance.objects.all()
+        self.assertEqual(len(products), 3)
+        self.assertEqual(len(product_instances), 4)
+
