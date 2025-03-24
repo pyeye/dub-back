@@ -10,7 +10,8 @@ from .serializers import ProductListSerializer, ProductInstanceSerializer
 from .models import NFacet, ProductInstance
 
 
-es = Elasticsearch([settings.ELASTIC_SEARCH['CONFIG']])
+es = Elasticsearch([settings.ELASTIC_SEARCH["CONFIG"]])
+EXCLUDED_FIELDS = ["suggest", "completion", "fulltext_russian", "fulltext_phonetic"]
 
 
 def index_products(product_model):
@@ -18,23 +19,25 @@ def index_products(product_model):
     data = json.loads(json.dumps(serializer.data))
     product_info_source = _create_product_info_source(data)
     actions = []
-    count_instances = len(data['instances'])
-    for product_instance in data['instances']:
+    count_instances = len(data["instances"])
+    for product_instance in data["instances"]:
         # TODO: if в цикле - плохо. сделать цикл по уже фильтрованным инстансам
-        if product_instance['status'] != ProductInstance.STATUS_ACTIVE:
+        if product_instance["status"] != ProductInstance.STATUS_ACTIVE:
             continue
         source = {
             **product_info_source,
-            'count_instances': count_instances,
-            'instance': product_instance,
+            "count_instances": count_instances,
+            "instance": product_instance,
         }
-        actions.append({
-            '_index': settings.ELASTIC_SEARCH['INDEX'],
-            '_id': product_instance['pk'],
-            '_type': '_doc',
-            '_op_type': 'create',
-            '_source': source,
-        })
+        actions.append(
+            {
+                "_index": settings.ELASTIC_SEARCH["INDEX"],
+                "_id": product_instance["pk"],
+                "_type": "_doc",
+                "_op_type": "create",
+                "_source": source,
+            }
+        )
 
     if actions:
         helpers.bulk(es, actions)
@@ -62,17 +65,10 @@ def delete_product(product_model):
     es.delete(index=settings.ELASTIC_SEARCH['INDEX'], doc_type='_doc', id=product_model.id)
 
 
-def get_products(params):
-    excludes = ['suggest', 'completion', 'fulltext_russian', 'fulltext_phonetic']
-    return _elastic_get_products(params=params, excludes=excludes)
-
-
 def add_collection(collection_model):
-    product_ids = [prod.pk for prod in collection_model.products.all()]
+    product_ids = list(collection_model.products.values_list("pk", flat=True))
     body = {
-        "query": {
-            "bool": {"filter": {"terms": {"instance.pk": product_ids}}}
-        },
+        "query": {"bool": {"filter": {"terms": {"instance.pk": product_ids}}}},
         "script": {
             "lang": "painless",
             "source": """
@@ -80,10 +76,12 @@ def add_collection(collection_model):
             """,
             "params": {
                 "collection": collection_model.pk,
-            }
-        }
+            },
+        },
     }
-    es.update_by_query(index=settings.ELASTIC_SEARCH['INDEX'], body=body, conflicts='proceed')
+    es.update_by_query(
+        index=settings.ELASTIC_SEARCH["INDEX"], body=body, conflicts="proceed"
+    )
 
 
 def remove_collection(collection_model):
@@ -101,10 +99,10 @@ def remove_collection(collection_model):
             """,
             "params": {
                 "collection": collection_model.pk,
-            }
-        }
+            },
+        },
     }
-    es.update_by_query(index=settings.ELASTIC_SEARCH['INDEX'], body=body)
+    es.update_by_query(index=settings.ELASTIC_SEARCH["INDEX"], body=body)
 
 
 def update_collection(collection_model):
@@ -112,87 +110,78 @@ def update_collection(collection_model):
     add_collection(collection_model)
 
 
-def _elastic_get_products(params, excludes):
+def get_products(params):
     filter_query = _create_filter_query(params)
 
-    sort_param = params.get('sort', None)
-    if sort_param is None:
-        sort_query = [{'name': 'asc'}]
-    else:
-        sort_name, sort_type = sort_param.split('-')
-        sort_query = {sort_name: sort_type}
+    sort_param = params.get("sort", "name-asc")
+    sort_name, sort_type = sort_param.split("-")
+    sort_query = {sort_name: sort_type}
 
-    page = int(params.get('page', 1))
-    page_from = 0 if page == 1 else settings.ELASTIC_SEARCH['PAGE_SIZE'] * (page - 1)
+    page = int(params.get("page", 1))
+    page_from = settings.ELASTIC_SEARCH["PAGE_SIZE"] * (page - 1)
 
     query = {
-        '_source': {
-            'excludes': excludes
-        },
-        'query': {
-            'bool': {
-                'filter': filter_query
-            }
-        },
-        'sort': sort_query,
-        'from': page_from,
-        'size': settings.ELASTIC_SEARCH['PAGE_SIZE'],
+        "_source": {"excludes": EXCLUDED_FIELDS},
+        "query": {"bool": {"filter": filter_query}},
+        "sort": sort_query,
+        "from": page_from,
+        "size": settings.ELASTIC_SEARCH["PAGE_SIZE"],
     }
 
-    products = es.search(index=settings.ELASTIC_SEARCH['INDEX'], body=query)
+    products = es.search(index=settings.ELASTIC_SEARCH["INDEX"], body=query)
 
-    total_products = products['hits']['total']['value']
-
+    total_products = products["hits"]["total"]["value"]
     formatted_products = []
-    for product in products['hits']['hits']:
-        source = _format_product(product['_source'])
-        source['pk'] = product['_id']
+
+    for product in products["hits"]["hits"]:
+        source = _format_product(product["_source"])
+        source["pk"] = product["_id"]
         formatted_products.append(source)
+
     return {
-        'items': formatted_products,
-        'total': total_products,
+        "items": formatted_products,
+        "total": total_products,
     }
 
 
 def get_product_info(pk):
     query = {
-        '_source': {
-            'excludes': ['suggest', 'completion', 'fulltext_russian', 'fulltext_phonetic']
-        },
-        'query': {
+        "_source": {"excludes": EXCLUDED_FIELDS},
+        "query": {
             "term": {"product_info_pk": str(pk)},
         },
     }
 
-    products = es.search(index=settings.ELASTIC_SEARCH['INDEX'], body=query)
-    hits = products['hits']['hits']
+    products = es.search(index=settings.ELASTIC_SEARCH["INDEX"], body=query)
+    hits = products["hits"]["hits"]
 
     if not hits:
         return None
 
-    product_info = hits[0]['_source']
-    instances = [p['_source']['instance'] for p in hits]
-    product_info['instances'] = instances
-    product_info.pop('instance', None)
+    product_info = hits[0]["_source"]
+    instances = [p["_source"]["instance"] for p in hits]
+    product_info["instances"] = instances
+    product_info.pop("instance", None)
 
     return product_info
 
 
 def get_product_instance(pk):
     try:
-        product = es.get(index=settings.ELASTIC_SEARCH['INDEX'], doc_type='_doc', id=pk)
+        product = es.get(index=settings.ELASTIC_SEARCH["INDEX"], doc_type="_doc", id=pk)
     except exceptions.NotFoundError:
         return None
-    excludes = ['suggest', 'completion', 'fulltext_russian', 'fulltext_phonetic']
-    for exclude_field in excludes:
-        product['_source'].pop(exclude_field, None)
-    return product['_source']
+
+    for exclude_field in EXCLUDED_FIELDS:
+        product["_source"].pop(exclude_field, None)
+
+    return product["_source"]
 
 
 def _format_product(product):
     source = product
-    for nfacet in source['number_facets']:
-        nfacet['value'] = str(float(nfacet['value']))
+    for nfacet in source["number_facets"]:
+        nfacet["value"] = str(float(nfacet["value"]))
     return source
 
 
@@ -245,96 +234,50 @@ def get_categories():
         "size": 0,
         "aggs": {
             "category": {
-                "terms": {
-                    "field": "category.name",
-                    "size": 100
-                },
+                "terms": {"field": "category.name", "size": 100},
                 "aggs": {
                     "category_src": {
                         "top_hits": {
                             "size": 1,
                             "sort": [{"created_at": {"order": "desc"}}],
-                            "_source": {"includes": ["name", 'name_slug', "products", "category"]}
+                            "_source": {
+                                "includes": [
+                                    "name",
+                                    "name_slug",
+                                    "products",
+                                    "category",
+                                ]
+                            },
                         }
                     },
-                    "string_facets": {
-                        "nested": {"path": "string_facets"},
-                        "aggs": {
-                            "facets_code": {
-                                "terms": {
-                                    "field": "string_facets.slug",
-                                    "size": 20,
-                                    "order": {
-                                        "_key": "asc"
-                                    }
-                                },
-                                "aggs": {
-                                    "facets_src": {
-                                        "top_hits": {
-                                            "size": 1,
-                                            "_source": {"includes": ["string_facets.slug", "string_facets.name"]}
-                                        }
-                                    },
-                                    "facets_nested": {
-                                        "nested": {"path": "string_facets.values"},
-                                        "aggs": {
-                                            "facet_values": {
-                                                "terms": {
-                                                    "field": "string_facets.values.pk",
-                                                    "size": 7
-                                                },
-                                                "aggs": {
-                                                    "facet_values_src": {
-                                                        "top_hits": {
-                                                            "size": 1,
-                                                            "_source": {"includes": ["string_facets.values.pk",
-                                                                                     "string_facets.values.name"]}
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                },
             }
-        }
+        },
     }
-    elastic_categories = es.search(index=settings.ELASTIC_SEARCH['INDEX'], body=query)
+    elastic_categories = es.search(index=settings.ELASTIC_SEARCH["INDEX"], body=query)
     categories = []
-    for category in elastic_categories['aggregations']['category']['buckets']:
+    for category in elastic_categories["aggregations"]["category"]["buckets"]:
         source = {
-            'pk': category['category_src']['hits']['hits'][0]['_id'],
-            **category['category_src']['hits']['hits'][0]['_source'],
+            "pk": category["category_src"]["hits"]["hits"][0]["_id"],
+            **category["category_src"]["hits"]["hits"][0]["_source"],
         }
-        facets = []
-        for string_facet_aggs in category['string_facets']['facets_code']['buckets']:
-            facet_key = string_facet_aggs['key']
-            facet_name = string_facet_aggs['facets_src']['hits']['hits'][0]['_source']['name']
-            facet_pk = string_facet_aggs['facets_src']['hits']['hits'][0]['_id']
-            string_facet_items = []
-            for facet_item in string_facet_aggs['facets_nested']['facet_values']['buckets']:
-                string_facet_obj = facet_item['facet_values_src']['hits']['hits'][0]['_source']
-                string_facet_obj['count'] = facet_item['doc_count']
-                string_facet_items.append(string_facet_obj)
-            string_facets_obj = {
-                'pk': facet_pk,
-                'slug': facet_key,
-                'values': string_facet_items,
-                'name': facet_name
-            }
-            facets.append(string_facets_obj)
-        source['facets'] = facets
-
         categories.append(source)
 
     return categories
 
 
 def get_facets(params):
+    """
+    Метод выполняет агрегации фасетных данных
+    1. Метод формирует фильтрующий запрос, основанный на предоставленных параметрах поиска
+    2. Логика агрегаций для строковых фасетов: 
+    Для каждого выбранного значения фасета метод выполняет дополнительный запрос,
+    исключающий это значение из filter_query. Это необходимо для вывода всех возможных вариантов
+    внутри текущего запроса(например, показать все доступные страны при выбранном стиле и наоборот)
+    3. Логика агрегаций для числовых фасетов: Метод выполняет две агрегации:
+    Контекстуальная агрегация (filtered_stats): использует filter_query для статистики по выборке
+    Общая агрегация для числовых фасетов (all_stats): игнорирует filter_query и вычисляет общую статистику
+    """
     filter_query = _create_filter_query(params)
     query = {
         "aggs": {
@@ -487,11 +430,11 @@ def get_facets(params):
             'slug': source['slug'],
             'name': source['name'],
             'suffix': source['suffix'],
-            'stats': {
+            'filtered_stats': {
                 'min': _get_number(_format_price(stats['min'])),
                 'max': _get_number(_format_price(stats['max'])),
             },
-            'all_stats': {
+            'total_stats': {
                 'min': _get_number(_format_price(all_stats['min'])),
                 'max': _get_number(_format_price(all_stats['max'])),
             },
