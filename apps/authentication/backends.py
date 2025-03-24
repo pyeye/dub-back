@@ -18,6 +18,7 @@ user_id and password.
 For login user (create token) can be used by the third or fourth
 backends or both.
 """
+
 from types import SimpleNamespace
 
 from django.contrib.auth.models import AnonymousUser
@@ -38,13 +39,13 @@ class JWTAuthentication(BaseAuthentication):
     Raise exception AuthenticationFailed if header exist and
     there was error its verification.
     """
+
     jwt_secret = settings.SECRET_KEY
-    jwt_prefix = 'JWT'
-    jwt_algorithm = 'HS256'
+    jwt_prefix = "JWT"
+    jwt_algorithm = "HS256"
 
     def authenticate(self, request, **credentials):
-
-        if request.method == 'OPTIONS':
+        if request.method == "OPTIONS":
             return None
 
         auth_header = get_authorization_header(request).split()
@@ -56,7 +57,8 @@ class JWTAuthentication(BaseAuthentication):
                 jwt=token,
                 key=self.jwt_secret,
                 algoritms=[self.jwt_algorithm],
-                verify=True)
+                verify=True,
+            )
         except jwt.InvalidTokenError:
             return None
 
@@ -73,6 +75,7 @@ class OAuth2Authentication(BaseAuthentication):
     """
     OAuth 2 authentication backend using `django-oauth-toolkit`
     """
+
     www_authenticate_realm = "api"
 
     def authenticate(self, request):
@@ -80,27 +83,28 @@ class OAuth2Authentication(BaseAuthentication):
         Returns two-tuple of (user, token) if authentication succeeds,
         or None otherwise.
         """
-        if request.method == 'OPTIONS':
+        if request.method == "OPTIONS":
             return None
 
         oauthlib_core = get_oauthlib_core()
         valid, r = oauthlib_core.verify_request(request, scopes=[])
-        if valid:
-            return r.user, r.access_token
-        else:
+
+        if not valid:
             auth_header = get_authorization_header(request).split()
             if not auth_header or len(auth_header) != 2:
                 return None
-            token = auth_header[1]
-            auth_cache = caches['auth']
-            key = 'auth:access_token:{token}:refresh_token'.format(token=token.decode("utf-8"))
+            token = auth_header[1].decode("utf-8")
+            auth_cache = caches["auth"]
+            key = f"auth:access_token:{token}:refresh_token"
             cached_refresh_token = auth_cache.get(key)
             if cached_refresh_token:
                 raise TokenExpire
             return None
 
+        return r.user, r.access_token
+
     def authenticate_header(self, request):
         """
         Bearer is the only finalized type currently
         """
-        return 'Bearer realm="%s"' % self.www_authenticate_realm
+        return f"Bearer realm={self.www_authenticate_realm}"
