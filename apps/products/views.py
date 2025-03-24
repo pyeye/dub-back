@@ -47,9 +47,15 @@ class FacetsListAPI(APIView):
 
 class FacetAllValuesListAPI(APIView):
     """Default size of values on each string facet is equal 10
-    this view load all rest values for specific string facet"""
+    this view load all rest values for specific string facet
+    :query param facet (required): string of the facet values to search for
+    """
     def get(self, request, format=None):
         params = self.request.query_params
+        facet = params.get('facet', None)
+        if not facet:
+            msg = "'facet' query param is required"
+            return Response(data=msg, status=status.HTTP_400_BAD_REQUEST)
         values = elastic.get_all_special_agg_values(params)
         return Response(data=values, status=status.HTTP_200_OK)
 
