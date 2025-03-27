@@ -188,8 +188,8 @@ class ProductAPITestCase(TestCase):
             sku=8974384,
             product_info=product_info2,
             measure=500,
-            price=550.00,
-            base_price=550.00,
+            price=550.50,
+            base_price=550.50,
             stock_balance=250,
             package_amount=10,
             status=ProductInstance.STATUS_ACTIVE,
@@ -240,6 +240,18 @@ class ProductAPITestCase(TestCase):
         self.assertIn("instances", data)
         self.assertEqual(data["count_instances"], 2)
         self.assertEqual(len(data["instances"]), 2)
+
+    def test_format_numbers(self):
+        response = self.client.get("/v1/products/2/")
+        data = response.json()
+        instance1 = [i for i in data['instances'] if i['sku'] == 8974384][0]
+        instance2 = [i for i in data['instances'] if i['sku'] == 8974385][0]
+        self.assertTrue(isinstance(instance1['price'], float))
+        self.assertTrue(isinstance(instance2['price'], int))
+        nfacet_dencity = [n for n in data['number_facets'] if n['slug'] == 'density'][0]
+        nfacet_strength = [n for n in data['number_facets'] if n['slug'] == 'strength'][0]
+        self.assertTrue(isinstance(nfacet_dencity['value'], int))
+        self.assertTrue(isinstance(nfacet_strength['value'], float))
 
     def test_detail_info_404(self):
         response = self.client.get("/v1/products/3/")
