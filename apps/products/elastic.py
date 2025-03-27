@@ -1192,13 +1192,4 @@ def delete_index():
 def _format_number(number):
     number = float(number)
     return int(number) if number.is_integer() else number
-    # return str(int(price)) if price % 1 == 0 else "{:.2f}".format(price)
-
-
-def _get_number(str_value):
-    try:
-        return int(str_value)
-    except ValueError:
-        return float(str_value)
-
 
