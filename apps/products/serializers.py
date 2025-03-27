@@ -1,3 +1,5 @@
+from decimal import Decimal, InvalidOperation
+from django.http import QueryDict
 from rest_framework import serializers
 
 from .models import (
@@ -14,6 +16,124 @@ from .models import (
     CollectionImage,
     Collection,
 )
+
+
+class QuerySerializer(serializers.Serializer):
+    """
+    Serializer for handling and validating query parameters 
+    with special processing of QueryDict values.
+
+    Each field in the serializer represents a specific query parameter, with options
+    for required status, default values, and validation rules
+    conform to the application's contract agreements.
+    """
+    page = serializers.IntegerField(required=False, default=1, min_value=1)
+    sort = serializers.CharField(required=False, default="name-asc")
+    category = serializers.CharField(required=False)
+    tags = serializers.CharField(required=False)
+    sales = serializers.CharField(required=False)
+    collections = serializers.CharField(required=False)
+    sfacets = serializers.ListField(child=serializers.CharField(), required=False)
+    nfacets = serializers.ListField(child=serializers.CharField(), required=False)
+    q = serializers.CharField(required=False)
+    prefix = serializers.CharField(required=False)
+
+    def __init__(self, *args, **kwargs):
+        """
+        Transforms QueryDict to dict before serializer initialization.
+        This prevents serializer fields from receiving [''] for blank values,
+        which would be treated as non-empty values in Serializer.
+
+        Handles two cases specially:
+        1. For keys ending with '[]' (array-style params), keeps the list format
+        2. For regular keys, takes the first value (consistent with web browsers)
+        """
+        data = kwargs.get('data', None)
+        if data is not None and isinstance(data, QueryDict):
+            data_dict = {}
+            for key, value in data.lists():
+                if key.endswith("[]"):
+                    new_key = key.rstrip("[]")
+                    data_dict[new_key] = value
+                else:
+                    data_dict[key] = value[0]
+            kwargs['data'] = data_dict
+        super().__init__(*args, **kwargs)
+
+    def validate_sort(self, value):
+        try:
+            field, direction = value.split("-")
+        except ValueError:
+            msg = "Field sort must be in format: 'field-direction'"
+            raise serializers.ValidationError(msg)
+        if direction not in ["asc", "desc"]:
+            msg = "Direction values must be 'asc' or 'desc'"
+            raise serializers.ValidationError(msg)
+        return field, direction
+
+    def validate_tags(self, value):
+        return self._parse_comma_separated_ints(value=value, field_name="tags")
+
+    def validate_sales(self, value):
+        return self._parse_comma_separated_ints(value=value, field_name="sales")
+
+    def validate_collections(self, value):
+        return self._parse_comma_separated_ints(value=value, field_name="collections")
+
+    def validate_sfacets(self, value):
+        validated_values = []
+        for sfacet in value:
+            try:
+                attr, values = sfacet.split(":")
+            except ValueError:
+                msg = "Field sfacets attribute end values must be separated by ':'"
+                raise serializers.ValidationError(msg)
+            values_list = self._parse_comma_separated_ints(values, attr)
+            if values_list is None:
+                msg = "Field sfacets values must be integers separated by ','"
+                raise serializers.ValidationError(msg)
+            validated_values.append((attr, values_list))
+        return validated_values
+
+    def validate_nfacets(self, value):
+        validated_values = []
+        for nfacet in value:
+            try:
+                attr, values = nfacet.split(":")
+            except ValueError:
+                msg = "Field nfacets attribute end values must be separated by ':'"
+                raise serializers.ValidationError(msg)
+            try:
+                min_value, max_value = values.split("-")
+            except ValueError:
+                msg = "Field nfacets values must be two numbers separated by '-'"
+                raise serializers.ValidationError(msg)
+            try:
+                validated_min_value = self._parse_number(min_value)
+                validated_max_value = self._parse_number(max_value)
+            except ValueError as e:
+                msg = "Field nfacets values must be integers"
+                raise serializers.ValidationError(msg) from e
+            validated_values.append((attr, (validated_min_value, validated_max_value)))
+        return validated_values
+
+    def _parse_comma_separated_ints(self, value, field_name):
+        if not value:
+            return None
+        try:
+            validated_values = tuple(int(v) for v in value.split(","))
+        except ValueError:
+            msg = f"Field {field_name} must be integers separated by comma"
+            raise serializers.ValidationError(msg)
+        return validated_values
+
+    def _parse_number(self, str_number):
+        try:
+            num = Decimal(str_number)
+            return int(num) if num == num.to_integral_value() else float(num)
+        except InvalidOperation as e:
+            msg = f"Unable to convert '{str_number}' to a number"
+            raise ValueError(msg) from e
 
 
 class CategorySerializer(serializers.ModelSerializer):

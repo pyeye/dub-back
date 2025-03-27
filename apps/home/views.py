@@ -7,7 +7,7 @@ from apps.sales.serializers import SaleApiSerializer
 from apps.news.models import News
 from apps.news.serializers import NewsSerializer
 from apps.products.models import ProductInfo, Collection
-from apps.products.serializers import ProductListSerializer, CollectionApiSerializer
+from apps.products.serializers import ProductListSerializer, CollectionApiSerializer, QuerySerializer
 from apps.products import elastic
 
 
@@ -38,6 +38,7 @@ class BestsellersApiView(generics.ListAPIView):
 class NewProductsListAPI(APIView):
 
     def get(self, request, format=None):
-        params = request.query_params
-        products = elastic.get_products(params)
+        params = QuerySerializer(data=request.query_params)
+        params.is_valid(raise_exception=True)
+        products = elastic.get_products(params.validated_data)
         return Response(products['items'][:10], status=status.HTTP_200_OK)

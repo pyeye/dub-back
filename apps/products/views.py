@@ -5,15 +5,16 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from django.shortcuts import get_object_or_404
 
-from .serializers import CollectionApiSerializer
+from .serializers import CollectionApiSerializer, QuerySerializer
 from .models import Collection
 from . import elastic
 
 
 class ProductViewSet(ViewSet):
     def list(self, request):
-        params = request.query_params
-        products = elastic.get_products(params)
+        params = QuerySerializer(data=request.query_params)
+        params.is_valid(raise_exception=True)
+        products = elastic.get_products(params.validated_data)
         return Response(products, status=status.HTTP_200_OK)
 
     def retrieve(self, request, pk=None):
@@ -32,15 +33,17 @@ class ProductViewSet(ViewSet):
 
 class TagsListAPI(APIView):
     def get(self, request, format=None):
-        params = self.request.query_params
-        tags = elastic.get_tags(params)
+        params = QuerySerializer(data=self.request.query_params)
+        params.is_valid(raise_exception=True)
+        tags = elastic.get_tags(params.validated_data)
         return Response(tags, status=status.HTTP_200_OK)
 
 
 class FacetsListAPI(APIView):
     def get(self, request, format=None):
-        params = self.request.query_params
-        sfacets, nfacets = elastic.get_facets(params)
+        params = QuerySerializer(data=self.request.query_params)
+        params.is_valid(raise_exception=True)
+        sfacets, nfacets = elastic.get_facets(params.validated_data)
         response_data = {"sfacets": sfacets, "nfacets": nfacets}
         return Response(response_data, status=status.HTTP_200_OK)
 
@@ -51,12 +54,13 @@ class FacetAllValuesListAPI(APIView):
     :query param facet (required): string of the facet values to search for
     """
     def get(self, request, format=None):
-        params = self.request.query_params
-        facet = params.get('facet', None)
-        if not facet:
+        params = QuerySerializer(data=self.request.query_params)
+        params.is_valid(raise_exception=True)
+        sfacet = self.request.query_params.get('sfacet', None)
+        if sfacet is None:
             msg = "'facet' query param is required"
             return Response(data=msg, status=status.HTTP_400_BAD_REQUEST)
-        values = elastic.get_all_special_agg_values(params)
+        values = elastic.get_sfacet_all_values(params.validated_data, sfacet)
         return Response(data=values, status=status.HTTP_200_OK)
 
 

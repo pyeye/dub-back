@@ -6,7 +6,7 @@ from django.conf import settings
 from django.http import QueryDict
 
 from .elastic import es, create_index, index_products
-from .serializers import ProductCreateSerializer
+from .serializers import ProductCreateSerializer, QuerySerializer
 from .models import (
     ProductInfo,
     Manufacturer,
@@ -302,7 +302,7 @@ class ProductAPITestCase(TestCase):
         self.assertEqual(response.data["total"], 3)
 
     def test_all_values_sfacet(self):
-        response = self.client.get("/v1/facet/full/?facet=country")
+        response = self.client.get("/v1/facet/full/?sfacet=country")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 2)
         self.assertEqual({'германия', 'бельгия'}, {item["name"] for item in response.data})
@@ -397,3 +397,98 @@ class ProductAPITestCase(TestCase):
         self.assertEqual(len(products), 3)
         self.assertEqual(len(product_instances), 4)
 
+
+class QuerySerializerTests(TestCase):
+    def test_valid_data(self):
+        query_string = "category=beer&nfacets[]=density:8-20&nfacets[]=strength:5.5-10&sfacets[]=country:138,23&sfacets[]=composition:95,32&page=3&sort=price-desc&tags=1,2,3&sales=5,10,15&collections=101,102"
+        query_dict = QueryDict(query_string, mutable=True)
+        serializer = QuerySerializer(data=query_dict)
+        self.assertTrue(serializer.is_valid())
+        validated_data = serializer.validated_data
+        self.assertEqual(validated_data['page'], 3)
+        self.assertEqual(validated_data['sort'], ('price', 'desc'))
+        self.assertEqual(validated_data['tags'], (1, 2, 3))
+        self.assertEqual(validated_data['sales'], (5, 10, 15))
+        self.assertEqual(validated_data['collections'], (101, 102))
+        self.assertEqual(validated_data['sfacets'], [('country', (138, 23)), ('composition', (95, 32))])
+        self.assertEqual(validated_data['nfacets'], [('density', (8, 20)), ('strength', (5.5, 10))])
+
+    def test_invalid_sort(self):
+        query_string = "sort=price-descending"
+        data = QueryDict(query_string, mutable=True)
+        # data = {'order': 'price-descending'}
+        serializer = QuerySerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('sort', serializer.errors)
+
+    def test_invalid_tags(self):
+        query_string = "tags=1,2,a"
+        data = QueryDict(query_string, mutable=True)
+        # data = {'tags': '1,2,a'}
+        serializer = QuerySerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('tags', serializer.errors)
+
+    def test_invalid_sales(self):
+        query_string = "sales=10,,20"
+        data = QueryDict(query_string, mutable=True)
+        # data = {'sales': '10,,20'}
+        serializer = QuerySerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('sales', serializer.errors)
+
+    def test_missing_page(self):
+        query_string = ""
+        data = QueryDict(query_string, mutable=True)
+        # data = {}
+        serializer = QuerySerializer(data=data)
+        self.assertTrue(serializer.is_valid())
+        self.assertEqual(serializer.validated_data['page'], 1)
+
+    def test_invalid_sfacets(self):
+        query_string = "sfacets[]=attr1:1,2&sfacets[]=attr2:"
+        data = QueryDict(query_string, mutable=True)
+        # data = {'sfacets': ['attr1:1,2', 'attr2:']}
+        serializer = QuerySerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('sfacets', serializer.errors)
+
+    def test_invalid_nfacets_format(self):
+        query_string = "nfacets[]=price:1,100"
+        data = QueryDict(query_string, mutable=True)
+        # data = {'nfacets': ['price:10,100', 'stock:five-50']}
+        serializer = QuerySerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('nfacets', serializer.errors)
+
+    def test_invalid_nfacets_values(self):
+        query_string = "nfacets[]=stock:five-50"
+        data = QueryDict(query_string, mutable=True)
+        # data = {'nfacets': ['price:10-ten']}
+        serializer = QuerySerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('nfacets', serializer.errors)
+
+    def test_empty_sales(self):
+        query_string = "sales="
+        data = QueryDict(query_string, mutable=True)
+        # data = {'sales': ''}
+        serializer = QuerySerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIsNone(serializer.validated_data.get('sales', None))
+
+    def test_empty_sfacets(self):
+        query_string = "sfacets[]="
+        data = QueryDict(query_string, mutable=True)
+        # data = {'sfacets': []}
+        serializer = QuerySerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIsNone(serializer.validated_data.get('sfacets', None))
+
+    def test_empty_nfacets(self):
+        query_string = "nfacets[]="
+        data = QueryDict(query_string, mutable=True)
+        # data = {'nfacets': []}
+        serializer = QuerySerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIsNone(serializer.validated_data.get('nfacets', None))

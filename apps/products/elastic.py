@@ -113,11 +113,10 @@ def update_collection(collection_model):
 def get_products(params):
     filter_query = _create_filter_query(params)
 
-    sort_param = params.get("sort", "name-asc")
-    sort_name, sort_type = sort_param.split("-")
+    sort_name, sort_type = params.get("sort")
     sort_query = {sort_name: sort_type}
 
-    page = int(params.get("page", 1))
+    page = params.get("page")
     page_from = settings.ELASTIC_SEARCH["PAGE_SIZE"] * (page - 1)
 
     query = {
@@ -133,10 +132,10 @@ def get_products(params):
     total_products = products["hits"]["total"]["value"]
     formatted_products = []
 
-    for product in products["hits"]["hits"]:
-        source = _format_product(product["_source"])
-        source["pk"] = product["_id"]
-        formatted_products.append(source)
+    for hit in products["hits"]["hits"]:
+        product = _format_product(hit['_source'])
+        product["pk"] = hit["_id"]
+        formatted_products.append(product)
 
     return {
         "items": formatted_products,
@@ -159,8 +158,15 @@ def get_product_info(pk):
         return None
 
     product_info = hits[0]["_source"]
-    instances = [p["_source"]["instance"] for p in hits]
-    product_info["instances"] = instances
+    product_info['instances'] = []
+    for nfacet in product_info['number_facets']:
+        nfacet["value"] = _format_number(nfacet["value"])
+    for product in hits:
+        instance = product["_source"]['instance']
+        instance['price'] = _format_number(instance['price'])
+        instance['base_price'] = _format_number(instance['base_price'])
+        product_info['instances'].append(instance)
+
     product_info.pop("instance", None)
 
     return product_info
@@ -174,15 +180,17 @@ def get_product_instance(pk):
 
     for exclude_field in EXCLUDED_FIELDS:
         product["_source"].pop(exclude_field, None)
+    formatted_product = _format_product(product["_source"])
 
-    return product["_source"]
+    return formatted_product
 
 
 def _format_product(product):
-    source = product
-    for nfacet in source["number_facets"]:
-        nfacet["value"] = str(float(nfacet["value"]))
-    return source
+    product['instance']['price'] = _format_number(product['instance']['price'])
+    product['instance']['base_price'] = _format_number(product['instance']['base_price'])
+    for nfacet in product["number_facets"]:
+        nfacet["value"] = _format_number(nfacet["value"])
+    return product
 
 
 def get_tags(params):
@@ -408,10 +416,10 @@ def get_facets(params):
         }
         string_facets.append(string_facets_obj)
 
-    sfilters = params.getlist('sfacets[]')
-    if sfilters:
+    sfilters = params.get('sfacets', None)
+    if sfilters is not None:
         for sfilter in sfilters:
-            attribute, values = sfilter.split(':')
+            attribute, values = sfilter
             sp_string_facet_items = _get_special_agg_values(params, attribute)
             facet_index = next((index for (index, d) in enumerate(string_facets) if d['slug'] == attribute), None)
             if facet_index is not None:
@@ -431,12 +439,12 @@ def get_facets(params):
             'name': source['name'],
             'suffix': source['suffix'],
             'filtered_stats': {
-                'min': _get_number(_format_price(stats['min'])),
-                'max': _get_number(_format_price(stats['max'])),
+                'min': _format_number(stats['min']),
+                'max': _format_number(stats['max']),
             },
             'total_stats': {
-                'min': _get_number(_format_price(all_stats['min'])),
-                'max': _get_number(_format_price(all_stats['max'])),
+                'min': _format_number(all_stats['min']),
+                'max': _format_number(all_stats['max']),
             },
 
         }
@@ -532,25 +540,23 @@ def _create_filter_query(params, special_sfacet=None):
         category_query = {'term': {'category.slug': category}}
         filter_query.append(category_query)
 
-    tags_params = params.get('tags', None)
-    if tags_params is not None:
+    tags = params.get('tags', None)
+    if tags is not None:
         tags_query = []
-        tags = tags_params.split(',')
         for tag in tags:
             tag_query = {
                 "nested": {
                     "path": "tags",
                     "query": {
-                        "bool": {"filter": {"term": {"tags.pk": int(tag)}}}
+                        "bool": {"filter": {"term": {"tags.pk": tag}}}
                     }
                 }
             }
             tags_query.append(tag_query)
         filter_query.append(tags_query)
 
-    sales_param = params.get('sales', None)
-    if sales_param is not None:
-        sales = [int(sale) for sale in sales_param.split(',')]
+    sales = params.get('sales', None)
+    if sales is not None:
         sale_query = {
             "nested": {
                 "path": "instance.sales",
@@ -565,9 +571,8 @@ def _create_filter_query(params, special_sfacet=None):
         }
         filter_query.append(sale_query)
 
-    collection_param = params.get('collections', None)
-    if collection_param is not None:
-        collections = [int(collection) for collection in collection_param.split(',')]
+    collections = params.get('collections', None)
+    if collections is not None:
         collection_query = {
             "bool": {
                 "filter": {
@@ -577,12 +582,11 @@ def _create_filter_query(params, special_sfacet=None):
         }
         filter_query.append(collection_query)
 
-    string_facets_params = params.getlist('sfacets[]')
-    if string_facets_params:
+    string_facets_params = params.get('sfacets', None)
+    if string_facets_params is not None:
         sfacet_query = []
         for string_facets_param in string_facets_params:
-            attribute, values = string_facets_param.split(':')
-            values = values.split(',')
+            attribute, values = string_facets_param
             if special_sfacet is not None and special_sfacet == attribute:
                 continue
             facet = {
@@ -608,12 +612,12 @@ def _create_filter_query(params, special_sfacet=None):
             sfacet_query.append(facet)
         filter_query += sfacet_query
 
-    number_facets_params = params.getlist('nfacets[]')
-    if number_facets_params:
+    number_facets_params = params.get('nfacets', None)
+    if number_facets_params is not None:
         nfacet_query = []
         for number_facets_param in number_facets_params:
-            attribute, values = number_facets_param.split(':')
-            min_val, max_val = [_get_number(value) for value in values.split('-')]
+            attribute, values = number_facets_param
+            min_val, max_val = values
             facet = {
               "nested": {
                 "path": "number_facets",
@@ -703,10 +707,8 @@ def _get_special_agg_values(params, special_sfacet, size=10):
     return sp_string_facet_values
 
 
-def get_all_special_agg_values(params):
-    special_sfacet = params.get('facet')
-    size = 100
-    facet_values = _get_special_agg_values(params, special_sfacet, size)
+def get_sfacet_all_values(params, sfacet):
+    facet_values = _get_special_agg_values(params, sfacet, size=100)
     return facet_values
 
 
@@ -1187,8 +1189,10 @@ def delete_index():
         pass
 
 
-def _format_price(price):
-    return str(int(price)) if price % 1 == 0 else "{:.2f}".format(price)
+def _format_number(number):
+    number = float(number)
+    return int(number) if number.is_integer() else number
+    # return str(int(price)) if price % 1 == 0 else "{:.2f}".format(price)
 
 
 def _get_number(str_value):

@@ -8,15 +8,11 @@ es = Elasticsearch([settings.ELASTIC_SEARCH["CONFIG"]])
 def search_products(params):
     filter_query = _create_filter_query(params)
 
-    sort_param = params.get('sort', None)
-    if sort_param is None:
-        sort_query = [{'name': 'asc'}]
-    else:
-        sort_name, sort_type = sort_param.split('-')
-        sort_query = {sort_name: sort_type}
+    sort_name, sort_type = params.get('sort')
+    sort_query = {sort_name: sort_type}
 
-    page = int(params.get('page', 1))
-    page_from = 0 if page == 1 else settings.ELASTIC_SEARCH["PAGE_SIZE"] * (page - 1)
+    page = params.get('page')
+    page_from = settings.ELASTIC_SEARCH["PAGE_SIZE"] * (page - 1)
 
     query = {
         '_source': {
