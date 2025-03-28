@@ -244,14 +244,18 @@ class ProductAPITestCase(TestCase):
     def test_format_numbers(self):
         response = self.client.get("/v1/products/2/")
         data = response.json()
-        instance1 = [i for i in data['instances'] if i['sku'] == 8974384][0]
-        instance2 = [i for i in data['instances'] if i['sku'] == 8974385][0]
-        self.assertTrue(isinstance(instance1['price'], float))
-        self.assertTrue(isinstance(instance2['price'], int))
-        nfacet_dencity = [n for n in data['number_facets'] if n['slug'] == 'density'][0]
-        nfacet_strength = [n for n in data['number_facets'] if n['slug'] == 'strength'][0]
-        self.assertTrue(isinstance(nfacet_dencity['value'], int))
-        self.assertTrue(isinstance(nfacet_strength['value'], float))
+        instance1 = next((i for i in data['instances'] if i['sku'] == 8974384), None)
+        instance2 = next((i for i in data['instances'] if i['sku'] == 8974385), None)
+        self.assertIsNotNone(instance1)
+        self.assertIsNotNone(instance2)
+        self.assertIsInstance(instance1['price'], float)
+        self.assertIsInstance(instance2['price'], int)
+        nfacet_dencity = next((n for n in data['number_facets'] if n['slug'] == 'density'), None)
+        nfacet_strength = next((n for n in data['number_facets'] if n['slug'] == 'strength'), None)
+        self.assertIsNotNone(nfacet_dencity)
+        self.assertIsNotNone(nfacet_strength)
+        self.assertIsInstance(nfacet_dencity['value'], int)
+        self.assertIsInstance(nfacet_strength['value'], float)
 
     def test_detail_info_404(self):
         response = self.client.get("/v1/products/3/")
